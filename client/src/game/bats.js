@@ -13,6 +13,7 @@ import {
   OctahedronGeometry,
   Quaternion,
   Shape,
+  Sphere,
   SphereGeometry,
   TorusGeometry,
   Vector2,
@@ -1093,10 +1094,15 @@ export function createBatShowcase(entries, scale = 1) {
   const geometry = mergeGeometries(parts, false)
   for (const part of parts) part.dispose()
   const mesh = new Mesh(geometry, createBatMaterial(true))
-  // Turned and bobbed in the vertex shader, but only about each bat's own spot: the
-  // merged bounds, padded, still hold them - so it's skipped whenever the shop's out of view.
-  geometry.computeBoundingSphere()
-  geometry.boundingSphere.radius += 1.5
+  // Each bat is built round the origin and moved to its spot by the vertex shader, so the
+  // geometry's own bounds are useless: the sphere is set from the spots instead (padded
+  // for a bat's size and bob), and the whole shop is skipped only when it's out of view.
+  const centre = new Vector3()
+  for (const e of entries) centre.add(new Vector3(e.x, e.y, e.z))
+  centre.divideScalar(Math.max(1, entries.length))
+  let radius = 0
+  for (const e of entries) radius = Math.max(radius, Math.hypot(e.x - centre.x, e.y - centre.y, e.z - centre.z))
+  geometry.boundingSphere = new Sphere(centre, radius + 4 * scale + 2)
   mesh.frustumCulled = true
   return mesh
 }
