@@ -19,7 +19,7 @@ import { useBloxity } from '../bloxity/BloxityContext'
 import { getEmoteClip, updateLocalEmote } from '../bloxity/emotes'
 import { shareLook } from '../net/connection'
 import { getGame } from '../store/game'
-import { createRubberArms, disposeRubberArms, setArmLook } from './armStyles'
+import { createBatMesh, disposeBatMesh } from './bats'
 import {
   animateRig,
   applyPart,
@@ -32,7 +32,6 @@ import {
   disposeMergedBody,
   mergeBody,
   placeFollowers,
-  placeRubberArms,
   placeHand,
   restInverses,
   updateEmote,
@@ -80,12 +79,12 @@ function fallbackMotion(delta) {
  *   own units: Bloxity authors the rig ~6.4 units tall with the feet at y=0, far bigger
  *   than the game's metric scale, so the model is measured and rescaled. `handRef` is
  *   an object beside the avatar that gets moved onto the right palm every frame, for
- *   anything held. `onStep` reports loading progress. `armsId`, if given, is asked every
- *   frame which arms (shared/balance.js TIRES id) this player wears: their arms are
- *   painted to match (armStyles.js) - the starter Noodle Arms keep the avatar's own skin.
+ *   anything held. `onStep` reports loading progress. `batId`, if given, is asked every
+ *   frame which bat (shared/balance.js TIRES id) this player carries: it's drawn where
+ *   the pose puts it (playerPose `bat`) - across their back, or in their hands at bat.
  */
 export const BloxityAvatar = forwardRef(function BloxityAvatar(
-  { equipped, proportions, onReady, onStep, targetHeight = 1.8, motionRef, handRef, emoteSource, armsId, local = false, ...props },
+  { equipped, proportions, onReady, onStep, targetHeight = 1.8, motionRef, handRef, emoteSource, batId, local = false, ...props },
   ref,
 ) {
   // three's own GLTFLoader (the one the cosmetics use too), not drei's useGLTF, which
@@ -280,10 +279,11 @@ export const BloxityAvatar = forwardRef(function BloxityAvatar(
   }, [proportions])
   /** This avatar's emote playback (blend weight, clip time). */
   const emotePlayer = useMemo(() => createEmotePlayer(), [])
-  /** The rubber arms drawn in place of the avatar's own, for a game avatar (`armsId`). */
-  const wantsArms = Boolean(armsId)
-  const rubberArms = useMemo(() => (wantsArms ? createRubberArms() : null), [wantsArms])
-  useEffect(() => () => rubberArms && disposeRubberArms(rubberArms), [rubberArms])
+  /** The bat this game avatar carries (`batId`): one mesh, placed from the pose. */
+  const wantsBat = Boolean(batId)
+  const bat = useMemo(() => (wantsBat ? createBatMesh() : null), [wantsBat])
+  useEffect(() => () => bat && disposeBatMesh(bat), [bat])
+  const batRef = useRef(null)
 
   useFrame((_state, delta) => {
     try {
@@ -292,19 +292,24 @@ export const BloxityAvatar = forwardRef(function BloxityAvatar(
       // A custom character takes no proportions (this still resets its rest pose).
       applyProportions(rig, custom ? null : proportionsRef.current)
       const motion = motionRef?.current ?? fallbackMotion(delta)
-      animateRig(rig, motion, 1 / fit.scale)
+      const pose = animateRig(rig, motion, 1 / fit.scale)
+      const held = batRef.current
+      if (held) {
+        // Where the pose put it: across the back, or in the hands at bat.
+        const placed = pose?.bat
+        held.visible = Boolean(placed) && placed.mode !== 'none'
+        if (held.visible) {
+          held.setBat(batId())
+          held.position.copy(placed.pos)
+          held.quaternion.copy(placed.quat)
+          held.scale.setScalar(placed.scale)
+        }
+      }
       // A Boxity emote, blended over the pose (see avatarRig.updateEmote).
       const emote = emoteSource ? emoteSource() : motion.emote
       updateEmote(rig, emotePlayer, emote, Math.min(delta, 0.1), getEmoteClip)
       placeFollowers(rig)
       if (handRef?.current) placeHand(rig, handRef.current)
-      if (armsId) {
-        const id = armsId()
-        // Rubber arms instead of the blocky ones (not on a custom character).
-        const shown = rubberArms ? placeRubberArms(rig, rubberArms, !custom) : false
-        rubberArms?.setArm(id)
-        setArmLook(bodyRef.current?.material, id, shown)
-      }
     } catch {
       // A malformed payload must not kill the render loop.
     }
@@ -322,7 +327,7 @@ export const BloxityAvatar = forwardRef(function BloxityAvatar(
       <group scale={fit.scale} position={[0, fit.footOffset, 0]}>
         <primitive object={character} />
       </group>
-      {rubberArms && <primitive object={rubberArms} />}
+      {bat && <primitive ref={batRef} object={bat} />}
     </group>
   )
 })
@@ -344,13 +349,13 @@ export const PlayerAvatar = forwardRef(function PlayerAvatar(props, ref) {
       local
       onStep={game.loadingStep}
       emoteSource={updateLocalEmote}
-      armsId={yourArms}
+      batId={yourBat}
     />
   )
 })
 
-/** The arms you've equipped, for your avatar's paint. */
-const yourArms = () => getGame().profile.equippedTire
+/** The bat you've equipped, for your avatar to carry. */
+const yourBat = () => getGame().profile.equippedTire
 
 /** The SDK's characterAccessoryMatrix(character, bone), or null on an SDK without it. */
 function characterAccessoryMatrix() {

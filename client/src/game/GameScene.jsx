@@ -28,6 +28,8 @@ import Lighting from './Lighting'
 import PerfProbe from './PerfProbe'
 import Player from './Player'
 import ShaderWarmup from './ShaderWarmup'
+import TossBall from './TossBall'
+import TrainingBalls from './TrainingBalls'
 import { FOG, SKY } from './sceneStyle'
 import Sky from './Sky'
 import World from './world/World'
@@ -41,8 +43,8 @@ const DevPerf = import.meta.env.DEV
   : null
 const showDevPerf = import.meta.env.DEV && new URLSearchParams(window.location.search).has('perf')
 
-// The runway is its own chunk, fetched once the lobby is on screen so it never delays
-// time-to-playable.
+// The field (and the ball's flight) is its own chunk, fetched once the lobby is on screen
+// so it never delays time-to-playable.
 const Roll = lazy(() => import('./roll/Roll'))
 
 /**
@@ -86,15 +88,15 @@ function ViewDistance({ far }) {
 
 /**
  * The camera's vertical field of view for a screen `aspect` wide: 60 degrees on a
- * landscape screen; wider on one held upright, so the runway, the pull-up bars and the arms
+ * landscape screen; wider on one held upright, so the field, the cages and your swing
  * still fit across a phone in portrait instead of being cropped to a narrow slit.
  */
 const fovForAspect = (aspect) => (aspect >= 1 ? 60 : Math.min(84, 60 / Math.sqrt(Math.max(0.3, aspect))))
 
 /**
  * Keeps the field of view right for the screen's shape as the phone turns. Left alone
- * while you fly (Roll.jsx animates the lens then, from this as its base), and put
- * right again once the launch is over.
+ * while the ball flies (Roll.jsx animates the lens then, from this as its base), and put
+ * right again once the hit is over.
  */
 function AspectFov() {
   const get = useThree((s) => s.get)
@@ -265,6 +267,8 @@ export function GameScene({ onReady }) {
         <RemotePlayers />
         <RemoteAvatars />
         <Player />
+        <TossBall />
+        <TrainingBalls />
         <BlobShadows />
         <GainFX />
         {warmedUp && firstFrame && (

@@ -5,14 +5,14 @@ import { QUALITY_LEVELS, useQuality } from '../store/quality'
 import { handleChatMessage } from './chat'
 import { loadEmotes, playLocalEmote, stopLocalEmote } from './emotes'
 import { safeCall, toUnsubscribe } from './sdk'
-import { hideScreen, setScreen } from './services'
+import { hideScreen } from './services'
 import { getBloxityState, useBloxityStore } from './store'
 
 /**
  * Everything the game wires into the Boxity SDK besides auth and the avatar (those stay
  * in BloxityProvider): features, leaderboards, ad breaks, the portal's settings menu,
  * portal-sent player events (respawn, emotes), chat bubbles, gameplay lifecycle and
- * screen ads, and - when playing offline - leaderboard scores.
+ * (no screen ads: only the rewarded ones a player taps), and - when playing offline - leaderboard scores.
  *
  * `setupOnce` runs once per page right after `init()`; `installIntegration` runs per
  * provider mount and returns its teardown (StrictMode mounts twice in dev).
@@ -22,7 +22,7 @@ import { getBloxityState, useBloxityStore } from './store'
 export const LEADERBOARDS = [
   { id: 'rebirths', label: 'Rebirths', order: 'desc', mode: 'best', format: 'number', reset: 'none' },
   { id: 'wins', label: 'Total Wins', order: 'desc', mode: 'best', format: 'compact', reset: 'none' },
-  { id: 'distance', label: 'Longest Flight (m)', order: 'desc', mode: 'best', format: 'compact', reset: 'none' },
+  { id: 'distance', label: 'Longest Hit (m)', order: 'desc', mode: 'best', format: 'compact', reset: 'none' },
   { id: 'playtime', label: 'Minutes Played', order: 'desc', mode: 'best', format: 'number', reset: 'none' },
 ]
 
@@ -166,7 +166,7 @@ function installPlayerEvents(sdk) {
   return subscribe(player, 'onRespawnRequest', () => onPlayerEvent('respawn_request'))
 }
 
-// --- Gameplay lifecycle + screen ads ---------------------------------------------------
+// --- Gameplay lifecycle (and no screen ads) ----------------------------------------------
 
 /** gameplayStart is reported once per page (and again after a bfcache restore). */
 let gameplayStarted = false
@@ -178,15 +178,19 @@ function installLifecycle(sdk) {
     gameplayStarted = true
     safeCall(game?.gameplayStart?.bind(game))
   }
-  /** Screen ads: 'panel' while a modal panel is open, 'gameplay' otherwise. */
+  /**
+   * No screen ads at all - never over the game, never over a panel: setScreen is never
+   * called, and anything Boxity has up is taken down. The only ads are the ones a player
+   * asks for by tapping Watch Ad (a rewarded ad, services.watchRewardedAd).
+   */
   const sync = (state) => {
     if (!state.playable) return
     start()
-    setScreen(state.panel ? 'panel' : 'gameplay')
+    hideScreen()
   }
   sync(getGame())
   const unsubscribe = useGame.subscribe((state, prev) => {
-    if (state.playable !== prev.playable || state.panel !== prev.panel) sync(state)
+    if (state.playable !== prev.playable) sync(state)
   })
 
   const onPageHide = () => {

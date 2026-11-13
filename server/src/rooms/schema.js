@@ -14,7 +14,7 @@ export const PlayerState = schema(
     y: t.float32(),
     z: t.float32(),
     rotY: t.float32(),
-    /** 'idle' | 'walk' | 'run' (pull-ups on a bar) | 'jump' | 'pull' (stretching back on the launch posts) | 'emote:<Boxity emote id>' */
+    /** 'idle' | 'walk' | 'run' (swinging in a cage) | 'jump' | 'pull' (up at bat) | 'swing' (a click swing) | 'emote:<Boxity emote id>' */
     anim: t.string(),
     /** What their Bloxity avatar wears, as JSON `{ equipped, proportions }` ('' = base). */
     look: t.string(),

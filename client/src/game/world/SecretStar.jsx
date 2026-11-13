@@ -92,8 +92,8 @@ function Star() {
 }
 
 /**
- * Palm Beach's Secret Star, tucked behind the middle leaderboards at the back of the plaza
- * (shared/world STAR): shown only in Palm Beach, and only until you've found it - the
+ * Lava Land's Secret Star, tucked behind the middle leaderboards at the back of the plaza
+ * (shared/world STAR): shown only in Lava Land, and only until you've found it - the
  * moment it's found (the server's pickup) it's gone. Two draw calls (the star on the
  * shared toy material, its halo and sparkles on the shared glow one), nothing allocated
  * per frame.

@@ -115,17 +115,15 @@ function readSaved() {
 }
 
 /**
- * Phones and small CPUs (4 cores or fewer) start on LOW, the safe choice; anything bigger
- * starts on MEDIUM, and the performance monitor drops it to LOW by itself if FPS stays
- * under 45 (`degrade`, auto-picked levels only). A level picked in Settings is
- * remembered on this device and wins over both.
+ * Everyone starts on LOW, the safe choice on any device: the game looks right and holds
+ * its frame rate on a low-end phone, and nothing has to be recompiled on the way. A
+ * level picked in Settings is remembered on this device and wins (and, picked by hand,
+ * auto-drop leaves it alone).
  */
 export const DEFAULT_LEVEL = 'LOW'
 
 function detectLevel() {
-  if (typeof navigator === 'undefined') return DEFAULT_LEVEL
-  const cores = navigator.hardwareConcurrency || 0
-  return isMobileDevice() || cores <= 4 ? 'LOW' : 'MEDIUM'
+  return DEFAULT_LEVEL
 }
 
 const initialLevel = readSaved() || detectLevel()

@@ -26,7 +26,7 @@ const DUPLICATE_LOGIN = 4100
 const POD = process.env.POD_NAME || `local-${process.pid}`
 
 /** What other players may be told someone is doing. */
-const ANIMS = ['idle', 'walk', 'run', 'jump', 'pull']
+const ANIMS = ['idle', 'walk', 'run', 'jump', 'pull', 'swing']
 /** A Boxity emote, replicated through `anim` as 'emote:<its 24-hex id>'. */
 const EMOTE_ANIM = /^emote:[a-f0-9]{24}$/
 /** Least time between two 'gemsCheck's from one player (each is a database query). */
@@ -145,7 +145,7 @@ export class GameRoom extends Room {
         return ok
       },
       onRoll: (result) => {
-        // Everyone else watches it as a ghost tire. Excluded by session id, not by the
+        // Everyone else watches the ball fly down their own line of the field. Excluded by session id, not by the
         // client object from the join: after a reconnect that object is stale, and the
         // roller would get their own roll back as a second tire.
         const self = this.clients.find((c) => c.sessionId === client.sessionId)
@@ -157,6 +157,7 @@ export class GameRoom extends Room {
             duration: result.duration,
             blocked: result.blocked,
             tireId: profile.equippedTire,
+            ballId: result.ballId,
             // How well it was timed: others see the jump smash and the flight it made.
             hit: result.hit,
             world: profile.world,

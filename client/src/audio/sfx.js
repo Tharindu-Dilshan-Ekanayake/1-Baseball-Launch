@@ -264,16 +264,17 @@ function windStop() {
   liveCrowd()?.anticipate(false)
 }
 
-// --- The pull-up bar: a springy boing every rep ----------------------------------------
+// --- The batting cage: a crack of the bat every swing --------------------------------
 
-/** Seconds between reps on a bar: one a TRAIN_INTERVAL (kick.RUN_CADENCE is its phase speed). */
+/** Seconds between cage swings: one a TRAIN_INTERVAL (kick.RUN_CADENCE is its phase speed). */
 const REP = (Math.PI * 2) / RUN_CADENCE
 let bar = null
 
 /**
- * Starts the reps' sound under you: each pull-up a rubbery "boi-oing" as your arms snap
- * short and a soft creak as they stretch back out (scheduled a little ahead on the audio
- * clock, like the music). Stopped by treadmillStop (the template's name) when you let go.
+ * Starts the cage's sound under you: each swing the whir of the pitching machine letting
+ * go, the bat's clean wooden "tok" as you meet the ball, and the net catching it with a
+ * soft swish (scheduled a little ahead on the audio clock, like the music). Stopped by
+ * treadmillStop (the template's name) when you step out.
  */
 function treadmillStart() {
   if (!ctx || bar || silent() || ctx.state !== 'running') return
@@ -282,9 +283,13 @@ function treadmillStart() {
     next = Math.max(next, ctx.currentTime + 0.02)
     while (next < ctx.currentTime + 0.4) {
       const at = next - ctx.currentTime
-      tone(150, { type: 'triangle', at, duration: 0.2, volume: 0.06, slideTo: 380 })
-      tone(760, { type: 'sine', at: at + 0.02, duration: 0.07, volume: 0.02, slideTo: 1100 })
-      tone(120, { type: 'sawtooth', at: at + REP * 0.5, duration: 0.18, volume: 0.012, slideTo: 85 })
+      // The machine's wheels flinging the pitch.
+      noise({ at: Math.max(0, at - 0.24), duration: 0.08, volume: 0.025, from: 700, to: 1500, q: 2 })
+      // The bat: a bright wooden tok with a knock under it.
+      noise({ at, duration: 0.035, volume: 0.13, from: 3600, to: 2200, q: 1.4 })
+      tone(1150 + Math.random() * 120, { at, duration: 0.05, volume: 0.06, slideTo: 760 })
+      // The net catching it.
+      noise({ at: at + 0.24, duration: 0.18, volume: 0.03, from: 1400, to: 500, q: 0.6 })
       next += REP
     }
   }
@@ -292,67 +297,11 @@ function treadmillStart() {
   schedule()
 }
 
-/** Letting go of the bar: the reps stop. */
+/** Stepping out of the cage: the swings stop. */
 function treadmillStop() {
   if (!bar) return
   clearInterval(bar.timer)
   bar = null
-}
-
-// --- The stretch: rubber creaking as you pull back on the launch posts ---------------
-
-let stretch = null
-let stretchSetAt = 0
-
-/**
- * Holding LAUNCH: a taut rubber creak that climbs in pitch the further back you pull and,
- * once it's full, trembles with every twang. Moved by stretchSet, stopped by stretchStop.
- */
-function stretchStart() {
-  if (!ctx || stretch || silent() || ctx.state !== 'running') return
-  const t = ctx.currentTime
-  const osc = ctx.createOscillator()
-  osc.type = 'sawtooth'
-  osc.frequency.value = 70
-  const filter = ctx.createBiquadFilter()
-  filter.type = 'bandpass'
-  filter.frequency.value = 520
-  filter.Q.value = 3
-  const gain = ctx.createGain()
-  gain.gain.setValueAtTime(0.0001, t)
-  gain.gain.setTargetAtTime(0.03, t, 0.05)
-  // The creak: the rubber's loudness fluttering fast.
-  const lfo = ctx.createOscillator()
-  lfo.frequency.value = 14
-  const depth = ctx.createGain()
-  depth.gain.value = 0.018
-  lfo.connect(depth).connect(gain.gain)
-  osc.connect(filter).connect(gain).connect(master)
-  osc.start(t)
-  lfo.start(t)
-  stretch = { osc, filter, gain, lfo }
-}
-
-/** `charge` 0-1, the stretch meter; `full` once it twangs. Called every frame. */
-function stretchSet(charge, full = false) {
-  if (!stretch) return
-  const now = performance.now()
-  if (now - stretchSetAt < 40) return
-  stretchSetAt = now
-  const t = ctx.currentTime
-  stretch.osc.frequency.setTargetAtTime(70 + charge * 200, t, 0.03)
-  stretch.filter.frequency.setTargetAtTime(480 + charge * 1500, t, 0.04)
-  stretch.lfo.frequency.setTargetAtTime(full ? 32 : 12 + charge * 10, t, 0.05)
-}
-
-function stretchStop() {
-  if (!stretch) return
-  const { osc, gain, lfo } = stretch
-  stretch = null
-  const t = ctx.currentTime
-  gain.gain.setTargetAtTime(0.0001, t, 0.03)
-  osc.stop(t + 0.3)
-  lfo.stop(t + 0.3)
 }
 
 function ready(name, minGapMs = 0) {
@@ -415,6 +364,8 @@ const TROPHY_SCALE = [1047, 1175, 1319, 1568, 1760, 2093, 2349, 2637]
 const TROPHY_RUN_MS = 700
 let trophyRun = 0
 let trophyAt = 0
+/** When the organ last played its "charge!" (it's only fun now and then). */
+let organAt = -Infinity
 
 /** Filtered noise: whooshes and cracks. */
 function noise(opts = {}) {
@@ -452,7 +403,7 @@ export const sfx = {
     if (!ready('levelUp')) return
     ;[523, 659, 784, 1047].forEach((f, i) => tone(f, { type: 'square', at: i * 0.07, duration: 0.14, volume: 0.09 }))
   },
-  /** Shooting past the launch posts: a thump, a whoosh, a rising boing and a sparkle. */
+  /** The ball leaving the bat: a thump, a whoosh, a rising boing and a sparkle. */
   rollStart() {
     if (!ready('rollStart')) return
     tone(110, { duration: 0.18, volume: 0.16, slideTo: 55 })
@@ -461,15 +412,93 @@ export const sfx = {
     bell(1319, { at: 0.2, volume: 0.05, decay: 0.3 })
   },
   /**
-   * Letting go of the stretch (`power` 0-1, how far back you'd pulled): the rubber's big
-   * twang dropping in pitch, a slap, and the rush of being slung forward.
+   * The bat meeting the ball (`grade`: HIT_GRADES id, null for Auto Swing): the ballpark's
+   * CRACK - a sharp, bright splinter of noise over a hollow wooden knock - louder, deeper
+   * and echoing for a better-timed hit, the crowd jumping up for a great one.
    */
-  rubberSnap(power = 1) {
-    if (!ready('rubberSnap', 250)) return
-    tone(520 + 300 * power, { type: 'triangle', duration: 0.32, volume: 0.17, slideTo: 130 })
-    tone(260 + 120 * power, { type: 'sawtooth', duration: 0.14, volume: 0.05, slideTo: 90 })
-    noise({ duration: 0.05, volume: 0.25, from: 2400, to: 900, q: 1.2 })
-    noise({ at: 0.06, duration: 0.4, volume: 0.1 * (0.5 + power * 0.5), from: 300, to: 2600, q: 0.7 })
+  batCrack(grade = null) {
+    if (!ready('batCrack', 200)) return
+    liveCrowd()?.anticipate(false)
+    const p = grade === 'perfect' ? 1 : grade === 'great' ? 0.8 : grade === 'weak' ? 0.35 : 0.6
+    noise({ duration: 0.03, volume: 0.45 * p + 0.1, from: 5200, to: 3000, q: 1.1 })
+    noise({ at: 0.01, duration: 0.09, volume: 0.25 * p, from: 2600, to: 900, q: 0.9 })
+    tone(1250, { duration: 0.06, volume: 0.12 * p + 0.03, slideTo: 820 })
+    tone(420, { type: 'triangle', duration: 0.12, volume: 0.1 * p, slideTo: 210 })
+    if (p >= 0.8) {
+      tone(70, { duration: 0.5, volume: 0.22 * p, slideTo: 36 })
+      noise({ at: 0.02, duration: 0.5, volume: 0.07, from: 900, to: 3200, q: 0.6, echo: true })
+      liveCrowd()?.roar(p)
+    } else if (p >= 0.6) {
+      liveCrowd()?.whoo(1)
+    }
+  },
+  /** A click swing coming round: a quick whoosh of the bat. */
+  swingWhoosh() {
+    if (ready('swingWhoosh', 150)) noise({ at: 0.2, duration: 0.16, volume: 0.07, from: 500, to: 1700, q: 1.3 })
+  },
+  /** A click swing meeting the ball you tossed up: a light, clean wooden tok. */
+  tok() {
+    if (!ready('tok', 120)) return
+    noise({ duration: 0.035, volume: 0.16, from: 3800, to: 2300, q: 1.4 })
+    tone(1150 + Math.random() * 150, { duration: 0.05, volume: 0.07, slideTo: 760 })
+  },
+  /** Tossing the ball up over the plate: a soft rising flick of air. */
+  toss() {
+    if (!ready('toss', 200)) return
+    noise({ duration: 0.22, volume: 0.06, from: 500, to: 2200, q: 1.2 })
+    tone(380, { type: 'triangle', duration: 0.18, volume: 0.05, slideTo: 760 })
+  },
+  /**
+   * The slow motion kicking in as the tossed ball tops out: a deep whoom dropping in pitch,
+   * the crowd hushing, and a low heartbeat thump.
+   */
+  slowMo() {
+    if (!ready('slowMo', 300)) return
+    tone(260, { type: 'sawtooth', duration: 0.7, volume: 0.05, slideTo: 60, attack: 0.04 })
+    noise({ duration: 0.8, volume: 0.06, from: 1400, to: 160, q: 0.7 })
+    tone(58, { at: 0.35, duration: 0.18, volume: 0.16, slideTo: 40 })
+    tone(58, { at: 0.62, duration: 0.16, volume: 0.12, slideTo: 40 })
+    liveCrowd()?.anticipate(true)
+  },
+  /** The pitch on its way: a short rising whoosh of a fastball. */
+  pitch() {
+    if (!ready('pitch', 300)) return
+    noise({ duration: 0.12, volume: 0.06, from: 600, to: 1600, q: 1.6 })
+    noise({ at: 0.18, duration: 0.5, volume: 0.05, from: 900, to: 2600, q: 1.1 })
+  },
+  /** A swing and a miss: the bat whooshing through empty air, then the catcher's mitt popping. */
+  whiff() {
+    if (!ready('whiff', 300)) return
+    noise({ duration: 0.22, volume: 0.12, from: 400, to: 1800, q: 1.2 })
+    tone(140, { at: 0.32, duration: 0.07, volume: 0.14, slideTo: 80 })
+    noise({ at: 0.32, duration: 0.05, volume: 0.12, from: 1200, to: 500, q: 0.8 })
+    liveCrowd()?.anticipate(false)
+  },
+  /** A pitch you let go by: just the mitt popping. */
+  strike() {
+    if (!ready('strike', 400)) return
+    liveCrowd()?.anticipate(false)
+    tone(150, { duration: 0.07, volume: 0.13, slideTo: 85 })
+    noise({ duration: 0.05, volume: 0.11, from: 1100, to: 450, q: 0.8 })
+  },
+  /**
+   * Stepping up to the plate: cleats scuffing the dirt and - not every time - the stadium
+   * organ's "charge!" riff.
+   */
+  stepIn() {
+    if (!ready('stepIn', 600)) return
+    noise({ duration: 0.12, volume: 0.06, from: 900, to: 300, q: 0.7 })
+    noise({ at: 0.16, duration: 0.1, volume: 0.05, from: 900, to: 300, q: 0.7 })
+    const now = performance.now()
+    if (now - organAt < 45000) return
+    organAt = now
+    // G C E G . E G - (da da da DUM, da DUMMM)
+    const riff = [[392, 0, 0.12], [523, 0.14, 0.12], [659, 0.28, 0.12], [784, 0.42, 0.26], [659, 0.74, 0.12], [784, 0.88, 0.5]]
+    for (const [f, at, duration] of riff) {
+      tone(f, { type: 'square', at: at + 0.3, duration, volume: 0.035, echo: true })
+      tone(f * 2, { type: 'sine', at: at + 0.3, duration, volume: 0.025 })
+    }
+    liveCrowd()?.whoo(1)
   },
   /** A referee's whistle: a pea-whistle's trilling blast, two of them when `long`. */
   whistle(long = false) {
@@ -566,7 +595,7 @@ export const sfx = {
       bell(2093, { at: 0.08, volume: 0.05, decay: 0.25 })
     }
   },
-  /** A WEAK launch: a dull, soft flop off a slack rubber band. */
+  /** A WEAK hit: a dull, jarring clunk off the end of the bat. */
   weakHit() {
     if (!ready('weakHit', 300)) return
     tone(320, { duration: 0.12, volume: 0.12, slideTo: 140 })
@@ -680,7 +709,7 @@ export const sfx = {
     noise({ duration: 0.5, volume: 0.07, from: 200, to: 1800, q: 0.6 })
     ;[262, 330, 392, 523, 659, 784].forEach((f, i) => tone(f, { type: 'sawtooth', at: 0.1 + i * 0.07, duration: 0.25, volume: 0.06 }))
   },
-  /** Grabbing an unlocked pull-up bar: a soft rising chime, and the reps start. */
+  /** Stepping into an unlocked batting cage: a soft rising chime, and the swings start. */
   treadmillEnter() {
     if (!ready('treadmillEnter', 400)) return
     ;[523, 784, 1047].forEach((f, i) => tone(f, { type: 'sine', at: i * 0.05, duration: 0.28, volume: 0.07 }))
@@ -708,9 +737,6 @@ export const sfx = {
   windStart,
   windSet,
   windStop,
-  stretchStart,
-  stretchSet,
-  stretchStop,
 }
 
 // The template's names, kept as aliases while callers move over to the tire ones.

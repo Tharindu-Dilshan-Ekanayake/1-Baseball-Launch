@@ -40,6 +40,11 @@
   right: 14px;
   bottom: 14px;
 }
+/* The bat button, just above the jump button. */
+.touch-bat {
+  right: 7px;
+  bottom: 98px;
+}
 
 @media (orientation: portrait) {
   :root {
@@ -64,6 +69,9 @@
   }
   .touch-jump {
     bottom: calc(14px + var(--px) * 300);
+  }
+  .touch-bat {
+    bottom: calc(98px + var(--px) * 300);
   }
 }
 
@@ -579,5 +587,83 @@ canvas {
   100% {
     opacity: 0;
     transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.1) rotate(220deg);
+  }
+}
+
+/*
+ * The HIT / SWING button at the batting stations: breathing while it waits, with a ring
+ * pulsing off it; urgent once the ball's in the air - quicker, wobbling, a gold ring -
+ * and popping in with a springy bounce every time it changes (it's re-keyed). Pressing
+ * it flashes it bright (the pop and pulse own its transform, so no press-scale here).
+ */
+.pp-hit {
+  animation:
+    pp-hit-pop 0.34s cubic-bezier(0.2, 1.6, 0.4, 1) both,
+    pp-hit-breathe 1.6s ease-in-out 0.34s infinite;
+}
+.pp-hit.pp-hit-swing {
+  animation:
+    pp-hit-pop 0.26s cubic-bezier(0.2, 1.7, 0.4, 1) both,
+    pp-hit-urgent 0.42s ease-in-out 0.26s infinite;
+}
+.pp-hit::after {
+  content: '';
+  position: absolute;
+  inset: -0.35rem;
+  border-radius: inherit;
+  border: 0.25rem solid rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  animation: pp-hit-ring 1.6s ease-out infinite;
+}
+.pp-hit.pp-hit-swing::after {
+  border-color: rgba(255, 226, 90, 0.95);
+  animation-duration: 0.7s;
+}
+.pp-hit:active:not(:disabled) {
+  filter: brightness(1.25) saturate(1.2);
+}
+@keyframes pp-hit-pop {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes pp-hit-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+@keyframes pp-hit-urgent {
+  0%,
+  100% {
+    transform: scale(1.04) rotate(-1.5deg);
+  }
+  50% {
+    transform: scale(1.12) rotate(1.5deg);
+  }
+}
+@keyframes pp-hit-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.32);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-hit,
+  .pp-hit.pp-hit-swing,
+  .pp-hit::after {
+    animation: none;
   }
 }

@@ -1,12 +1,11 @@
 /**
  * Each stage theme's colours (each stage names one in its `theme`): the sky the ball flies
- * under (Lane.jsx blends the sky and fog to it as you reach the stage), the HUD's name
+ * under (Lane.jsx blends the sky and fog to it as the ball gets there), the HUD's name
  * gradient, and the floor/gate tints the landing spray and the stage-start line borrow.
  *
- * Every sky is a game-day sky of its own - golden hour in the Backyard, a blue afternoon at
- * High School, hot orange haze in the desert, a pink beach sunset, an icy dusk, purple
- * twilight at College, a red-black volcano glow, black starry space with the Earth's glow
- * on the Moon, a floodlit night for the Championship... `sky` is { top, horizon, sun,
+ * Most skies are a sunny game-day blue tinted at the horizon (DAY_TINTS); a few stages keep
+ * a sky of their own - golden hour over the first field, a red-black volcano glow, a neon
+ * night, black starry space with the Earth's glow on the Moon, the aurora... `sky` is { top, horizon, sun,
  * glow, clouds, stars } (see Sky.jsx).
  */
 /**
@@ -155,11 +154,14 @@ export const ZONE_THEMES = {
 }
 
 /**
- * How each stage theme dresses the kick field: `field` is the ground out past the stands
- * (car park asphalt, sand, snow, lava rock... in `style`), `turf` the two mown greens of
- * the pitch and the turf beside it, and `colors` the city skyline standing beyond the
- * stands (Lane.jsx's buildings), hazy in the stage's light. Every stage looks like its
- * own place through its colours; the pitch is always a football field.
+ * How each stage theme dresses the outfield (Lane.jsx): `turf` the two mown shades of the
+ * outfield grass (light and dark stripes, the cut checkered) - a different field in every
+ * stage: green grass, golden autumn, sand, snow, pink candy, ash, lavender crystal, glowing
+ * neon, moon dust, deep space...; `field` the ground beyond it, in `style` (a materials
+ * STYLE name: STUDS turf, ROAD asphalt, LAVA, WATER, GALAXY...); `colors` the skyline
+ * (Lava Land's stands' city beyond, kept from the template); and `hill` the ridges down
+ * both sides at the Sunny Ballpark - their look (`style`), their rock in two shades (`dirt`)
+ * and what grows on them (`decor`, in `leaves` on a `trunk`).
  */
 // Most stages: the sunny day sky, tinted at the horizon.
 for (const [id, horizon] of Object.entries(DAY_TINTS)) {
@@ -167,31 +169,91 @@ for (const [id, horizon] of Object.entries(DAY_TINTS)) {
 }
 
 export const STAGE_LOOKS = {
-  grassy: { field: '#555b68', style: 'ROAD', turf: ['#2fbf47', '#3ad456'], colors: ['#5a6787', '#776c8c', '#ffd27a'] },
-  autumn: { field: '#5d5f66', style: 'ROAD', turf: ['#4fae3a', '#5cc544'], colors: ['#6f7f9f', '#8a8fa8', '#ffe8b0'] },
-  desert: { field: '#d8b06a', style: 'ROAD', turf: ['#7fb83a', '#8fca46'], colors: ['#c08a5a', '#a8784e', '#ffe0a0'] },
-  beach: { field: '#e8d29a', style: 'ROAD', turf: ['#3fc65a', '#4cda68'], colors: ['#8a6aa8', '#c47a9a', '#ffd0e0'] },
-  jungle: { field: '#3f6a3a', style: 'ROAD', turf: ['#1f9a3a', '#27ae46'], colors: ['#3f6a6f', '#557a6a', '#e6ffb0'] },
-  frozen: { field: '#dfeaf6', style: 'ROAD', turf: ['#9fdcb4', '#b4ecc6'], colors: ['#8a9ac0', '#a8b4d0', '#fff0f6'] },
-  cherry: { field: '#4a4466', style: 'ROAD', turf: ['#4fcf5a', '#5fe068'], colors: ['#5a4a8a', '#7a5a9a', '#ffc0d8'] },
-  candy: { field: '#e6b8d8', style: 'ROAD', turf: ['#52d66a', '#66e87c'], colors: ['#a07ac8', '#d08ab8', '#ffffff'] },
-  mushroom: { field: '#3c3466', style: 'ROAD', turf: ['#3fb860', '#4cca6e'], colors: ['#4a3a8a', '#6a4a9a', '#ffd0ff'] },
-  volcano: { field: '#4a2a24', style: 'LAVA', turf: ['#3a8a3a', '#46a046'], colors: ['#2a1a1e', '#3a2026', '#ff7a3a'] },
-  swamp: { field: '#3a4a36', style: 'ROAD', turf: ['#4a9a3a', '#58ae46'], colors: ['#3a5048', '#4a5f4f', '#f0ffb0'] },
-  crystal: { field: '#2a2450', style: 'ROAD', turf: ['#4fc68a', '#5cd89a'], colors: ['#2a2460', '#3a2c78', '#c8b0ff'] },
-  ocean: { field: '#2fa0c8', style: 'WATER', turf: ['#3fc6a0', '#4cd8b0'], colors: ['#2a5a8a', '#3a6f9a', '#e0fbff'] },
-  neon: { field: '#1d2246', style: 'ROAD', turf: ['#1f9a5a', '#27b068'], colors: ['#14163a', '#1f1a4a', '#ff3bd8'] },
-  sky: { field: '#5d6170', style: 'ROAD', turf: ['#4fd06a', '#62e27c'], colors: ['#7a8ab0', '#9aa4c0', '#ffffff'] },
-  rainbow: { field: '#6a6080', style: 'ROAD', turf: ['#3fd08a', '#52e49c'], colors: ['#7a7ac8', '#a08ac8', '#fff2a0'] },
-  moon: { field: '#8a8f9c', style: 'ROAD', turf: ['#8a90a0', '#9aa0b0'], colors: ['#3a3f50', '#4a4f60', '#7fb8ff'] },
-  aurora: { field: '#20384a', style: 'ROAD', turf: ['#5fd4a0', '#72e6b2'], colors: ['#163040', '#1f4050', '#7fffd0'] },
-  space: { field: '#141a40', style: 'GALAXY', turf: ['#2a8a7a', '#349c8a'], colors: ['#10142e', '#181c3e', '#ffffff'] },
-  cosmic: { field: '#2a1450', style: 'GALAXY', turf: ['#7a3a9a', '#8a46ae'], colors: ['#1a0a30', '#26103e', '#ff9cf0'] },
+  grassy: {
+    field: '#3aa834', style: 'STUDS', turf: ['#3cbf3c', '#4bd148'], colors: ['#5a6787', '#776c8c', '#ffd27a'],
+    hill: { style: 'HILL', dirt: ['#8d6036', '#7d5530'], decor: 'tree', leaves: '#3fb84a', trunk: '#7a4f2a' },
+  },
+  autumn: {
+    field: '#7a8a3a', style: 'STUDS', turf: ['#9cb83e', '#aac84a'], colors: ['#6f7f9f', '#8a8fa8', '#ffe8b0'],
+    hill: { style: 'HILL', dirt: ['#a0602a', '#8a5426'], decor: 'tree', leaves: '#ff8a1e', trunk: '#6a4020' },
+  },
+  desert: {
+    field: '#d8b06a', style: 'STUDS', turf: ['#dcb46a', '#e8c47c'], colors: ['#c08a5a', '#a8784e', '#ffe0a0'],
+    hill: { style: 'MESA', dirt: ['#e8a868', '#d89458'], decor: 'cactus', leaves: '#3f9a3a', trunk: '#3f9a3a' },
+  },
+  beach: {
+    field: '#2fa8d8', style: 'WATER', turf: ['#f0d9a0', '#f8e6b6'], colors: ['#8a6aa8', '#c47a9a', '#ffd0e0'],
+    hill: { style: 'MESA', dirt: ['#f0d9a0', '#e6c88a'], decor: 'palm', leaves: '#2fae4a', trunk: '#9a6a3a' },
+  },
+  jungle: {
+    field: '#2f6a2a', style: 'STUDS', turf: ['#1f9a3a', '#28ae46'], colors: ['#3f6a6f', '#557a6a', '#e6ffb0'],
+    hill: { style: 'HILL', dirt: ['#5a4a2a', '#4a3c22'], decor: 'palm', leaves: '#1f8a2a', trunk: '#6a4a2a' },
+  },
+  frozen: {
+    field: '#eef6ff', style: 'STUDS', turf: ['#eaf4ff', '#d6e9fa'], colors: ['#8a9ac0', '#a8b4d0', '#fff0f6'],
+    hill: { style: 'MESA', dirt: ['#a8c4e6', '#94b4dc'], decor: 'pine', leaves: '#2f7a5a', trunk: '#5a4030' },
+  },
+  cherry: {
+    field: '#5aa060', style: 'STUDS', turf: ['#6fd068', '#7fde76'], colors: ['#5a4a8a', '#7a5a9a', '#ffc0d8'],
+    hill: { style: 'HILL', dirt: ['#9a6a5a', '#8a5a4a'], decor: 'tree', leaves: '#ff9cc8', trunk: '#5a3a3a' },
+  },
+  candy: {
+    field: '#f0c0e0', style: 'STUDS', turf: ['#ffb8dc', '#ffcae6'], colors: ['#a07ac8', '#d08ab8', '#ffffff'],
+    hill: { style: 'MESA', dirt: ['#ff9cc8', '#c8a0ff'], decor: 'lollipop', leaves: '#ff5fa8', trunk: '#ffffff' },
+  },
+  mushroom: {
+    field: '#3c5a46', style: 'STUDS', turf: ['#3fb8a0', '#4cc8ae'], colors: ['#4a3a8a', '#6a4a9a', '#ffd0ff'],
+    hill: { style: 'HILL', dirt: ['#6a4a8a', '#5a3a7a'], decor: 'mushroom', leaves: '#ff3b5a', trunk: '#fff4e0' },
+  },
+  volcano: {
+    field: '#ff5a14', style: 'LAVA', turf: ['#4a3a36', '#55443f'], colors: ['#2a1a1e', '#3a2026', '#ff7a3a'],
+    hill: { style: 'LAVA', dirt: ['#ff5a14', '#ff6a1e'], decor: 'spike', leaves: '#ff6a1e', trunk: '#1a1220' },
+  },
+  swamp: {
+    field: '#3a5a46', style: 'WATER', turf: ['#5a8a3a', '#679844'], colors: ['#3a5048', '#4a5f4f', '#f0ffb0'],
+    hill: { style: 'HILL', dirt: ['#4a5a3a', '#3a4a2e'], decor: 'tree', leaves: '#6a8a2a', trunk: '#3a3020' },
+  },
+  crystal: {
+    field: '#2a2450', style: 'STUDS', turf: ['#9a8ae8', '#a898f2'], colors: ['#2a2460', '#3a2c78', '#c8b0ff'],
+    hill: { style: 'PLATE', dirt: ['#5a3ae0', '#4a2cc8'], decor: 'crystal', leaves: '#c08bff', trunk: '#7fe8ff' },
+  },
+  ocean: {
+    field: '#2fa0c8', style: 'WATER', turf: ['#3fc6c0', '#4cd6ce'], colors: ['#2a5a8a', '#3a6f9a', '#e0fbff'],
+    hill: { style: 'WATER', dirt: ['#2f8fd0', '#1f7ac0'], decor: 'coral', leaves: '#ff7a8a', trunk: '#ffb36a' },
+  },
+  neon: {
+    field: '#1d2246', style: 'ROAD', turf: ['#123a26', '#174a31'], colors: ['#14163a', '#1f1a4a', '#ff3bd8'],
+    hill: { style: 'WINDOWS', dirt: ['#1a1c3a', '#22244a'], decor: 'neon', leaves: '#ff3bd8', trunk: '#3a3f5a' },
+  },
+  sky: {
+    field: '#cfe8ff', style: 'STUDS', turf: ['#7fdc8c', '#8fe89c'], colors: ['#7a8ab0', '#9aa4c0', '#ffffff'],
+    hill: { style: 'MESA', dirt: ['#e8f4ff', '#d8ecff'], decor: 'cloud', leaves: '#ffffff', trunk: '#ffffff' },
+  },
+  rainbow: {
+    field: '#a8d8a0', style: 'STUDS', turf: ['#7fe0b0', '#8ff0c0'], colors: ['#7a7ac8', '#a08ac8', '#fff2a0'],
+    hill: { style: 'RAINBOW', dirt: ['#ffffff', '#ffffff'], decor: 'lollipop', leaves: '#ffd21f', trunk: '#ffffff' },
+  },
+  moon: {
+    field: '#8a8f9c', style: 'STUDS', turf: ['#8a90a0', '#9aa0b0'], colors: ['#3a3f50', '#4a4f60', '#7fb8ff'],
+    hill: { style: 'STUDS', dirt: ['#8a8f9c', '#7a7f8c'], decor: 'rock', leaves: '#6a6f7c', trunk: '#5a5f6c' },
+  },
+  aurora: {
+    field: '#20384a', style: 'STUDS', turf: ['#3fd4a0', '#52e6b2'], colors: ['#163040', '#1f4050', '#7fffd0'],
+    hill: { style: 'MESA', dirt: ['#2a4a5a', '#203a4a'], decor: 'pine', leaves: '#1f6a5a', trunk: '#3a3030' },
+  },
+  space: {
+    field: '#141a40', style: 'GALAXY', turf: ['#1a2450', '#222c60'], colors: ['#10142e', '#181c3e', '#ffffff'],
+    hill: { style: 'GALAXY', dirt: ['#141a40', '#1a2050'], decor: 'crystal', leaves: '#5fd6ff', trunk: '#8a63ff' },
+  },
+  cosmic: {
+    field: '#2a1450', style: 'GALAXY', turf: ['#5a2a8a', '#6a349a'], colors: ['#1a0a30', '#26103e', '#ff9cf0'],
+    hill: { style: 'GALAXY', dirt: ['#2a1450', '#3a1a64'], decor: 'crystal', leaves: '#ff5bd8', trunk: '#ffd24a' },
+  },
 }
 
 /**
- * The turf's stripes, LANE_STRIPE yards each, alternating light and dark (Lane.jsx; Impact.jsx
- * borrows these two greens for the chunks a landing throws up).
+ * The outfield's stripes, LANE_STRIPE metres each, alternating light and dark (Lane.jsx;
+ * Impact.jsx borrows each stage's two shades for the chunks a landing throws up).
  */
 export const LANE_STRIPE = 5
 export const LANE_RAINBOW = ['#2fbf47', '#3ad456']

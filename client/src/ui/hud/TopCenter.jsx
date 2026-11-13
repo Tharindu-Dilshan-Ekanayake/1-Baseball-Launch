@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState } from 'react'
+
 import { rebirthMultiplier, TUTORIAL } from '@shared/balance'
 import { formatDistance, formatNumber } from '@shared/format'
-import { isMaxLevel, nextTire, zoneIndexAt } from '@shared/logic'
+import { isMaxLevel, nextBall, nextTire, zoneIndexAt } from '@shared/logic'
 
 import { zones } from '../../game/worldLook'
 
@@ -11,18 +13,55 @@ import { u } from './style'
 const BANNER_GRADIENT = 'linear-gradient(180deg, #fff6a8 0%, #ffd52a 45%, #ffa000 100%)'
 const PANEL_GRADIENT = 'linear-gradient(180deg, #ffe45c 0%, #ffc21f 55%, #ff9a12 100%)'
 
+/** The goal banner peeks in for this long (ms), once when the tutorial's done and again every EVERY_MS. */
+const PEEK_MS = 5000
+const EVERY_MS = 2 * 60 * 1000
+
 /**
- * The tutorial for brand-new players: run, kick, buy a ball - then it's gone for good.
- * A small strip, "1/3" and the step with its progress ("(16/30)"), so the world stays in
+ * Whether the goal banner is showing: for PEEK_MS when it first appears, then again for
+ * PEEK_MS every EVERY_MS - and straight away whenever a new chance turns up (`readyKey`
+ * changes: a bat or ball you can now buy, a rebirth ready). Timers only: nothing
+ * re-renders in between.
+ */
+function useGoalPeek(readyKey) {
+  const [shown, setShown] = useState(true)
+  const peek = useRef(null)
+  useEffect(() => {
+    let hide = setTimeout(() => setShown(false), PEEK_MS)
+    peek.current = () => {
+      setShown(true)
+      clearTimeout(hide)
+      hide = setTimeout(() => setShown(false), PEEK_MS)
+    }
+    const every = setInterval(() => peek.current(), EVERY_MS)
+    return () => {
+      clearTimeout(hide)
+      clearInterval(every)
+      peek.current = null
+    }
+  }, [])
+  const firstKey = useRef(readyKey)
+  useEffect(() => {
+    if (!readyKey || readyKey === firstKey.current) return undefined
+    firstKey.current = null
+    const id = setTimeout(() => peek.current?.(), 0)
+    return () => clearTimeout(id)
+  }, [readyKey])
+  return shown
+}
+
+/**
+ * The tutorial for brand-new players: train, hit, buy a bat, buy a ball - then it's gone
+ * for good. A small strip, "1/4" and the step with its progress ("(16/30)"), so the world stays in
  * view; the 3D arrows (TutorialArrows) show where to go.
  */
 function TutorialBanner({ step }) {
   const current = TUTORIAL[step]
   const health = useGame((s) => s.profile.health)
-  const onZone = useGame((s) => s.zone.rollZone)
+  const atPlate = useGame((s) => s.zone.atPlate)
   let text = current.text
   if (current.health) text += ` (${formatNumber(Math.min(health, current.health))}/${formatNumber(current.health)})`
-  if (current.event === 'roll' && onZone) text = 'Pull BACK to stretch, then let go of the stick!'
+  if (current.event === 'roll' && atPlate) text = 'Press HIT to toss it up - then SWING as it drops to the line!'
   return (
     <div
       className="flex items-center"
@@ -53,10 +92,11 @@ function TutorialBanner({ step }) {
 }
 
 /**
- * The next goal, always in sight once the tutorial's done - something close enough to
- * chase: rebirth when you're at max level, else the next pair of arms and how far your
- * Wins are from it, else the next stage down the runway past your best flight. A tap
- * opens what it's about.
+ * The next goal, once the tutorial's done - something close enough to chase: rebirth when
+ * you're at max level, else the next ball when you can afford it and not the next bat,
+ * else the next bat and how far your Wins are from it, else the next stage down the field
+ * past your best hit. A tap opens what it's about. Not always in the way: it peeks in for
+ * five seconds every two minutes, and whenever something new is ready (useGoalPeek).
  */
 function GoalBanner() {
   const profile = useGame((s) => s.profile)
@@ -65,14 +105,23 @@ function GoalBanner() {
   let text
   let progress = null
   let panel = null
+  /** Something you can do right now (buy, rebirth): its text, shown as soon as it turns up. */
+  let ready = null
   if (isMaxLevel(profile)) {
     text = `REBIRTH READY! Rebirth for x${rebirthMultiplier(profile.rebirths + 1)} Power`
     panel = 'rebirth'
+    ready = text
   } else {
     const next = nextTire(profile)
-    if (next) {
-      const wins = Math.max(0, profile.wins - pending)
-      text = wins >= next.cost ? `You can buy ${next.name}! Visit the Arm Shop` : `Next arms: ${next.name}`
+    const wins = Math.max(0, profile.wins - pending)
+    const ball = nextBall({ ownedBalls: profile.ownedBalls || ['baseball'] })
+    if (ball && wins >= ball.cost && (!next || wins < next.cost)) {
+      text = `You can buy the ${ball.name}! Visit the Ball Shop`
+      panel = 'balls'
+      ready = text
+    } else if (next) {
+      text = wins >= next.cost ? `You can buy the ${next.name}! Visit the Bat Shop` : `Next bat: ${next.name}`
+      if (wins >= next.cost) ready = text
       progress = Math.min(1, wins / Math.max(1, next.cost))
       if (wins < next.cost) text += ` (${formatNumber(wins)}/${formatNumber(next.cost)} Wins)`
     } else {
@@ -82,12 +131,18 @@ function GoalBanner() {
       progress = Math.min(1, profile.stats.bestDistance / Math.max(1, nextStage.start))
     }
   }
+  const shown = useGoalPeek(ready)
   return (
     <button
       type="button"
-      onClick={panel ? () => openPanel(panel) : undefined}
-      className={`${panel ? 'pp-btn pointer-events-auto' : ''} relative flex flex-col items-center overflow-hidden`}
+      onClick={panel && shown ? () => openPanel(panel) : undefined}
+      aria-hidden={!shown}
+      tabIndex={shown ? 0 : -1}
+      className={`${panel && shown ? 'pp-btn pointer-events-auto' : ''} relative flex flex-col items-center overflow-hidden`}
       style={{
+        opacity: shown ? 1 : 0,
+        transform: `translateY(${shown ? 0 : u(-30)})`,
+        transition: 'opacity 0.35s ease, transform 0.35s ease',
         padding: `${u(6)} ${u(24)} ${u(progress === null ? 6 : 14)}`,
         borderRadius: u(30),
         border: `${u(4)} solid #111`,

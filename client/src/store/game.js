@@ -37,18 +37,18 @@ export const useGame = create((set, get) => ({
   leaderboards: null,
 
   /** Where the player is standing, from the ticker. */
-  zone: { pad: -1, padNear: -1, rollZone: false, atPosts: false, stand: -1, egg: null, portal: null, freeReward: false, sphinx: false },
+  zone: { pad: -1, padNear: -1, rollZone: false, atPlate: false, ballShop: false, stand: -1, egg: null, portal: null, freeReward: false, sphinx: false },
 
   /** Which modal panel is open: 'rebirth' | 'daily' | 'pets' | 'items' | 'store' | ... */
   panel: null,
   /** Extra data for the open panel (e.g. which egg the hatch panel is for). */
   panelData: null,
 
-  /** A roll in progress: { distance, wins, prize, blocked, duration, best }. */
+  /** A hit in progress (the template's roll): { distance, wins, prize, blocked, duration, best }. */
   roll: null,
-  /** Wins earned by the current roll, held back from the HUD until the tire stops. */
+  /** Wins earned by the current hit, held back from the HUD until the ball stops. */
   pendingWins: 0,
-  /** "+N Wins!" result once the tire has stopped. */
+  /** "+N Wins!" result once the ball has stopped. */
   rollResult: null,
   /** A short celebration banner: { text, id } (new zone, ad reward, Gems purchase). */
   toast: null,

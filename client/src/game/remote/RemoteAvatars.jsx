@@ -2,99 +2,86 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Vector3 } from 'three'
 
-import { LAUNCH_STAND, PAD_YAW, padAt, padBarHeight } from '@shared/world'
+import { BATTER_YAW, PAD_YAW } from '@shared/world'
 
 import { remotePlayers } from '../../net/remotePlayers'
 import { getQuality } from '../../store/quality'
 import { emoteFromAnim } from '../../bloxity/emotes'
+import { CLICK_POSE_S, TOSS_S } from '../clickSwing'
 import { RUN_CADENCE } from '../kick'
-import { BODY, GRIP } from '../playerPose'
+import { SWING_CONTACT } from '../playerPose'
 import { BloxityAvatar } from '../PlayerAvatar'
-import { levelCap } from '@shared/balance'
-
-import { armGrowth } from '../armStyles'
-import { flierTurn, maxPullFor } from '../roll/path'
 
 /** How often the set of fully drawn players is reconsidered. */
 const PICK_MS = 500
 /** Top walking speed: full stride amplitude, as for your own character. */
 const MAX_SPEED = 10.875
 const _up = new Vector3(0, 1, 0)
-const _hip = new Vector3()
 
 /**
- * One other player as their real Bloxity avatar, dressed as they are - arms painted as
- * the arms they've equipped - and posed by the same playerPose as yours, from what the
- * network says they're doing: walking pace, pull-ups on a bar, jumping, stretching back
- * on the launch posts. Their launches fly the avatar itself down the runway, replayed
- * from the same numbers as yours (RemotePlayers works the flight out: `r.flight`).
+ * One other player as their real Bloxity avatar, dressed as they are and carrying the bat
+ * they've equipped - posed by the same playerPose as yours, from what the network says
+ * they're doing: walking pace, swinging in a batting cage, jumping, up at bat waiting on
+ * the pitch. Their hits play here too: the swing through the ball and the celebration,
+ * while their ball flies down its own line of the field (roll/BallFlight).
  */
 function RemoteAvatar({ sessionId, look }) {
   const groupRef = useRef(null)
-  const innerRef = useRef(null)
   const lastY = useRef(null)
-  const motionRef = useRef({ time: 0, speed: 0, grounded: true, maxSpeed: MAX_SPEED, vy: 0, stride: 0, grip: -1 })
-  const armsId = useCallback(() => remotePlayers.get(sessionId)?.tireId || 'bicycle', [sessionId])
+  const motionRef = useRef({ time: 0, speed: 0, grounded: true, maxSpeed: MAX_SPEED, vy: 0, stride: 0 })
+  const batId = useCallback(() => remotePlayers.get(sessionId)?.tireId || 'bicycle', [sessionId])
 
   useFrame((_state, rawDelta) => {
     const group = groupRef.current
-    const inner = innerRef.current
     const r = remotePlayers.get(sessionId)
-    if (!group || !inner || !r) return
+    if (!group || !r) return
     const delta = Math.min(rawDelta, 0.05)
     const m = motionRef.current
     m.time += delta
     group.visible = true
-    m.grip = -1
-    m.strain = 0
-    m.pitch = 0
-    m.fly = 0
-    m.sprawl = 0
-    m.cheer = 0
     m.run = 0
+    m.bat = undefined
+    m.cheer = 0
     m.emote = null
-    m.grow = armGrowth(r.tireId, r.level, levelCap(r.rebirths || 0))
+    group.position.copy(r.position)
 
-    if (r.flying) {
-      // Their launch: slung past the posts and flying down the runway, diving about their
-      // middle - the group under it, the avatar turned about it.
-      const st = r.flight
-      group.position.set(st.position.x, st.position.y - BODY.pivot, st.position.z)
-      group.quaternion.identity()
-      flierTurn(st, inner.quaternion)
-      _hip.set(0, BODY.pivot, 0).applyQuaternion(inner.quaternion)
-      inner.position.set(-_hip.x, BODY.pivot - _hip.y, -_hip.z)
-      m.grip = st.grip
-      m.strain = st.strain
-      m.pitch = st.pitch
-      m.fly = st.fly
-      m.sprawl = st.sprawl
-      m.cheer = st.cheer
-      m.reach = 1.5
+    if (r.hitting || r.pulling) {
+      // At the plate: their hit (the swing through the ball, then watching it fly and
+      // celebrating), or waiting on the next pitch.
+      group.quaternion.setFromAxisAngle(_up, BATTER_YAW)
+      if (r.hitting) {
+        m.bat = 'after'
+        m.swingT = r.hitT + SWING_CONTACT
+        m.great = r.hitGrade === 'perfect' || r.hitGrade === 'great'
+      } else {
+        m.bat = 'ready'
+        // A gentle wind-up loop: you can't see their pitcher's clock.
+        m.coil = 0.5 + 0.5 * Math.sin(m.time * 1.6)
+      }
       m.speed = 0
       m.grounded = true
       return
     }
-
-    inner.position.set(0, 0, 0)
-    inner.quaternion.identity()
-    group.position.copy(r.position)
     const running = r.anim === 'run'
-    if (r.pulling) {
-      // Stretching back on the posts: they're where they've walked back to, facing down
-      // the runway, arms reaching to the grips.
-      const back = Math.max(0, r.position.z - LAUNCH_STAND.z)
-      group.quaternion.setFromAxisAngle(_up, Math.PI)
-      m.grip = GRIP.ahead + back
-      m.strain = Math.min(1, back / maxPullFor(r.tireId, r.level, levelCap(r.rebirths || 0)))
+    if (r.anim === 'swing') {
+      // Click swinging (a ball tossed up and smacked, again and again): side-on to the way
+      // they face, on a loop - you can't see their clicks, only that they're swinging.
+      group.quaternion.setFromAxisAngle(_up, r.yaw - Math.PI / 2)
+      const t = m.time % (CLICK_POSE_S + 0.08)
+      if (t < TOSS_S) {
+        m.bat = 'ready'
+        m.coil = t / TOSS_S
+      } else {
+        m.bat = 'swing'
+        m.swingT = t - TOSS_S
+      }
       m.speed = 0
       m.grounded = true
       return
     }
     group.quaternion.setFromAxisAngle(_up, running ? PAD_YAW : r.yaw)
-    // Under a bar: rubber-arm pull-ups, as yours does.
+    // In a cage: a swing at every pitch, as yours does.
     m.run = running ? 1 : 0
-    m.barY = running ? padBarHeight(padAt(r.position.x, r.position.z, 1)) : undefined
 
     const speed = running ? 0 : r.speed
     m.speed = speed
@@ -111,9 +98,7 @@ function RemoteAvatar({ sessionId, look }) {
 
   return (
     <group ref={groupRef}>
-      <group ref={innerRef}>
-        <BloxityAvatar equipped={look?.equipped} proportions={look?.proportions} motionRef={motionRef} armsId={armsId} targetHeight={1.8} />
-      </group>
+      <BloxityAvatar equipped={look?.equipped} proportions={look?.proportions} motionRef={motionRef} batId={batId} targetHeight={1.8} />
     </group>
   )
 }
@@ -137,7 +122,7 @@ export function RemoteAvatars() {
       const near = []
       for (const r of remotePlayers.values()) {
         r.fullAvatar = false
-        const d = camera.position.distanceTo(r.flying ? r.flight.position : r.position)
+        const d = camera.position.distanceTo(r.position)
         if (d < settings.remoteAvatarDistance) near.push([d, r])
       }
       near.sort((a, b) => a[0] - b[0])

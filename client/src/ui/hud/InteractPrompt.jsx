@@ -23,6 +23,8 @@ function usePrompt() {
   const padNear = useGame((s) => s.zone.padNear)
   const padLocked = useGame((s) => s.zone.padNear >= 0 && !isPadUnlocked(s.profile, s.zone.padNear))
   const atSphinx = useGame((s) => s.zone.sphinx)
+  const atBallShop = useGame((s) => s.zone.ballShop)
+  const openPanel = useGame((s) => s.openPanel)
   const atPortal = useGame((s) => s.zone.portal)
   const wins = useGame((s) => s.profile.wins)
   const rebirths = useGame((s) => s.profile.rebirths)
@@ -34,7 +36,7 @@ function usePrompt() {
     const world = WORLD_PORTALS[atPortal]
     if (inWorld === 1) return { title: WORLDS[0].name, action: 'Step out and back in to go home', run: null }
     if (unlocked || (rebirths >= world.rebirths && wins >= world.wins)) {
-      return { title: world.name, action: `x${WORLDS[1].wins} Wins on every launch!`, run: null }
+      return { title: world.name, action: `x${WORLDS[1].wins} Wins on every hit!`, run: null }
     }
     if (rebirths < world.rebirths) return { title: world.name, action: `Needs ${world.rebirths} Rebirths (you have ${rebirths})`, run: null }
     return { title: world.name, action: `Needs ${formatNumber(world.wins)} Wins (you have ${formatNumber(wins)})`, run: null }
@@ -55,6 +57,10 @@ function usePrompt() {
     }
     const word = pad.rebirths === 1 ? 'Rebirth' : 'Rebirths'
     return { title, action: `Locked: needs ${pad.rebirths} ${word}`, run: null }
+  }
+
+  if (atBallShop) {
+    return { title: 'Ball Shop', action: 'Upgrade your ball', run: () => openPanel('balls') }
   }
 
   if (atFreeReward) {

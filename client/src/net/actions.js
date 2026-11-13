@@ -18,16 +18,21 @@ export function send(type, payload) {
 
 export const actions = {
   /**
-   * Launches you; only counts on the LAUNCH PAD (the LET GO! button sends it).
-   * `accuracy` (0-1) is the stretch meter when you let go; leave it out for Auto Launch.
+   * Swings at the pitch; only counts at home plate (the SWING button sends it).
+   * `accuracy` (0-1) is the swing meter when you swung; leave it out for Auto Swing.
    */
   roll: (accuracy) => send('roll', Number.isFinite(accuracy) ? { accuracy } : undefined),
+  /** A click swing at a ball you tossed up yourself: one Power gain (rate-limited). */
+  clickSwing: () => send('clickSwing'),
   enterPad: (pad) => send('enterPad', { pad }),
   leavePad: () => send('leavePad'),
   rebirth: () => send('rebirth'),
   skipRebirth: () => send('skipRebirth'),
   buyTire: (id) => send('buyTire', { id }),
   equipTire: (id) => send('equipTire', { id }),
+  /** Buys ball `id` (the next in the Ball Shop) or equips one you own. */
+  buyBall: (id) => send('buyBall', { id }),
+  equipBall: (id) => send('equipBall', { id }),
   /** Buys Health pack `index` (0-2) from the bar under the level. */
   buyPack: (index) => send('buyPack', { index }),
   hatch: (eggId, count = 1) => send('hatch', { eggId, count }),
@@ -45,7 +50,7 @@ export const actions = {
   claimQuestBonus: () => send('claimQuestBonus'),
   setSetting: (key, value) => send('setting', { key, value }),
   portal: () => send('portal'),
-  /** Picks up Palm Beach's Secret Star (the authority checks you're at it). */
+  /** Picks up Lava Land's Secret Star (the authority checks you're at it). */
   findStar: () => send('findStar'),
   /** Buys a shop item with Wins; see shop.js. */
   purchase: (productId) => send('purchase', { productId }),

@@ -1,5 +1,5 @@
 /**
- * A full-screen white flash for cuts (back to the kick zone after a kick), done with a CSS
+ * A full-screen white flash for cuts (back to home plate after a hit), done with a CSS
  * transition on one element the ScreenFade component registers here: no React renders.
  */
 let element = null

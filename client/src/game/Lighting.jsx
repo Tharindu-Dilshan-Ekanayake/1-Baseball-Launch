@@ -2,9 +2,10 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useLayoutEffect, useRef } from 'react'
 import { Vector3 } from 'three'
 
+import { useGame } from '../store/game'
 import { useQuality } from '../store/quality'
 import { runtime } from './runtime'
-import { LIGHTS } from './sceneStyle'
+import { LIGHTS, lightsOf } from './sceneStyle'
 
 const SUN_DIRECTION = new Vector3(...LIGHTS.sunDirection).normalize()
 /** How far back along SUN_DIRECTION the light sits from the point it shadows. */
@@ -13,8 +14,9 @@ const SUN_DISTANCE = 70
 const SHADOW_EXTENT = 28
 
 /**
- * Golden-hour game-day light: a cool sky fill with a warm bounce off the turf, and a warm,
- * low sun in the north-west (where the sky glows: skyState.sunDirection matches it).
+ * Game-day light: a cool sky fill with a green bounce off the grass and a bright sun in
+ * the north-west (where the sky glows: skyState.sunDirection matches it) - or, in Lava
+ * Land, a red-orange glow from below and a hot orange sun (sceneStyle WORLD_LIGHTS).
  *
  * Only the HIGH preset casts realtime shadows; lower presets use blob shadows instead
  * (see BlobShadows), so the shadow pass costs nothing there.
@@ -27,6 +29,7 @@ export function Lighting() {
   const scene = useThree((s) => s.scene)
   const shadows = useQuality((s) => s.settings.shadows === 'realtime')
   const mapSize = useQuality((s) => s.settings.shadowMapSize) || 1024
+  const look = lightsOf(useGame((s) => s.profile.world || 0))
 
   useLayoutEffect(() => {
     const sun = sunRef.current
@@ -59,12 +62,12 @@ export function Lighting() {
 
   return (
     <>
-      <hemisphereLight args={[LIGHTS.hemiSky, LIGHTS.hemiGround, LIGHTS.hemiIntensity]} />
+      <hemisphereLight color={look.hemiSky} groundColor={look.hemiGround} intensity={look.hemiIntensity} />
       <directionalLight
         ref={sunRef}
         castShadow={shadows}
-        color={LIGHTS.sunColor}
-        intensity={LIGHTS.sunIntensity}
+        color={look.sunColor}
+        intensity={look.sunIntensity}
         position={SUN_DIRECTION.clone().multiplyScalar(SUN_DISTANCE).toArray()}
         shadow-mapSize={[mapSize, mapSize]}
         shadow-radius={LIGHTS.shadowSoftness}

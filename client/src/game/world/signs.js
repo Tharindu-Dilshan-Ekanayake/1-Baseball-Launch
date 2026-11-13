@@ -10,16 +10,16 @@ import {
   Vector3,
 } from 'three'
 
-import { LAUNCH_STAND, MAX_PULL, ROLL_ZONE, SHOP_SIGN, SHOP_SIGN_FACING } from '@shared/world'
+import { SCREEN, SHOP_SIGN, SHOP_SIGN_FACING } from '@shared/world'
 
 import { venueOf } from '../sceneStyle'
-import { DECAL_Y, DIGIT, DIRECTIONS, END_ZONE_TEXT, LOGO, yardNumbers } from './pitch'
+import { DECAL_Y, DIRECTIONS, LOGO } from './pitch'
 import { ARCH_SIGN } from './rollZone'
+import { BALL_SHOP_SIGN } from './structures'
 
 const FONT = '"Fredoka One", "Arial Rounded MT Bold", sans-serif'
 
 const GOLD = ['#fffbd0', '#ffd21f', '#ff8a00']
-const NAVY = ['#5a6cb0', '#1a2a66', '#0a1232']
 const WHITE = ['#ffffff', '#ffffff', '#e6ecf5']
 
 /**
@@ -124,10 +124,10 @@ function arcText(ctx, text, cx, cy, r, size, top) {
 }
 
 /**
- * The circular midfield logo: a gold rim, a navy ring with BACKYARD over the top and
- * STADIUM under the bottom between two gold stars, and in the middle a royal blue disc
- * with a big football on it - in the venue's colours and words (`logo`: Palm Beach's is
- * sand, teal and coral, PALM BEACH STADIUM).
+ * The circular logo at the spawn: a gold rim, a ring in the team's colour with the venue's
+ * name over the top and BALLPARK under the bottom between two gold stars, and in the
+ * middle two crossed wooden bats behind a baseball - in the venue's colours and words
+ * (`logo`: SUNNY BALLPARK, or LAVA LAND in basalt and orange).
  */
 function paintLogo(ctx, [rx, ry, size], logo) {
   const c = size / 2
@@ -161,39 +161,67 @@ function paintLogo(ctx, [rx, ry, size], logo) {
     ctx.fill()
     ctx.restore()
   }
-  // The emblem: a rubber arm at full stretch snaking up to a big golden fist (the same
-  // art as the game's icon, ui/icons.js), ringed like a rubber band.
+  // The emblem, in a 100-unit box: two crossed bats, a baseball over where they cross.
   ctx.save()
   const k = (size * 0.5) / 100
-  ctx.translate(cx - 50 * k, cy - 52 * k)
+  ctx.translate(cx, cy)
   ctx.scale(k, k)
-  const arm = new Path2D('M16 88C20 62 50 72 48 50S60 32 66 31')
-  ctx.lineCap = 'round'
-  ctx.strokeStyle = '#1b1b1f'
-  ctx.lineWidth = 25
-  ctx.stroke(arm)
-  ctx.strokeStyle = '#ff6ab8'
-  ctx.lineWidth = 15
-  ctx.stroke(arm)
-  ctx.setLineDash([4, 10])
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)'
-  ctx.stroke(arm)
-  ctx.setLineDash([])
-  ctx.beginPath()
-  ctx.arc(73, 27, 17, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffcf2e'
-  ctx.fill()
-  ctx.lineWidth = 6
-  ctx.strokeStyle = '#1b1b1f'
-  ctx.stroke()
-  ctx.lineWidth = 3.5
-  ctx.beginPath()
-  // The gaps between the curled fingers, along the top of the fist.
-  for (const [x0, y0, x1, y1] of [[66, 12, 69, 20], [74, 10, 74, 20], [82, 12, 79, 20]]) {
-    ctx.moveTo(x0, y0)
-    ctx.lineTo(x1, y1)
+  ctx.lineJoin = 'round'
+  for (const angle of [-0.62, 0.62]) {
+    ctx.save()
+    ctx.rotate(angle)
+    // Knob at the bottom, a thin handle flaring into the barrel, a rounded end at the top.
+    const bat = new Path2D()
+    bat.moveTo(-3, 40)
+    bat.lineTo(-3.2, 12)
+    bat.quadraticCurveTo(-4, -4, -8.5, -16)
+    bat.lineTo(-8.5, -38)
+    bat.arc(0, -38, 8.5, Math.PI, 0)
+    bat.lineTo(8.5, -16)
+    bat.quadraticCurveTo(4, -4, 3.2, 12)
+    bat.lineTo(3, 40)
+    bat.closePath()
+    ctx.lineWidth = 5
+    ctx.strokeStyle = '#1b1b1f'
+    ctx.stroke(bat)
+    const wood = ctx.createLinearGradient(-8, 0, 8, 0)
+    wood.addColorStop(0, '#f2c27a')
+    wood.addColorStop(0.55, '#d8954f')
+    wood.addColorStop(1, '#a8693a')
+    ctx.fillStyle = wood
+    ctx.fill(bat)
+    ctx.beginPath()
+    ctx.ellipse(0, 42, 6.5, 3.2, 0, 0, Math.PI * 2)
+    ctx.fillStyle = '#8a5a2e'
+    ctx.fill()
+    ctx.stroke()
+    ctx.restore()
   }
+  ctx.beginPath()
+  ctx.arc(0, 12, 19, 0, Math.PI * 2)
+  ctx.fillStyle = '#fbf8ef'
+  ctx.fill()
+  ctx.lineWidth = 5
+  ctx.strokeStyle = '#1b1b1f'
   ctx.stroke()
+  // The seams, curving in either side, with their stitches.
+  ctx.strokeStyle = '#e0262f'
+  ctx.lineWidth = 2.6
+  for (const side of [-1, 1]) {
+    const base = side > 0 ? Math.PI : 0
+    ctx.beginPath()
+    ctx.arc(side * 27, 12, 19, base - 0.62, base + 0.62)
+    ctx.stroke()
+    for (let i = -2; i <= 2; i += 1) {
+      const a = base + i * 0.26
+      const x = side * 27 + Math.cos(a) * 19
+      const y = 12 + Math.sin(a) * 19
+      ctx.beginPath()
+      ctx.moveTo(x - 2.2, y - 1.6)
+      ctx.lineTo(x + 2.2, y + 1.6)
+      ctx.stroke()
+    }
+  }
   ctx.restore()
 }
 
@@ -207,49 +235,22 @@ const ROUND_SIDES = 32
 
 /**
  * The atlas's cells for venue `v`, as fractions of its size: [x, y, w, h], and how each is
- * painted. The logo takes the top-left quarter; the upright signs and the six digits fill
- * the top-right; the end zones' lettering and the four direction stencils run below.
+ * painted. The logo takes the top-left quarter; the four upright signs fill the top-right;
+ * the direction stencils run below, two to a row.
  */
 const cellsFor = (v) => ({
   logo: { rect: [0, 0, 0.5, 0.5], paint: (ctx, r) => paintLogo(ctx, r, v.logo) },
-  arch: { rect: [0.5, 0, 0.5, 0.15], paint: (ctx, r) => paintText(ctx, r, 'STRETCH & FLY', { fill: GOLD, edge: '#c2410c', slant: 0.14 }) },
-  shop: { rect: [0.5, 0.15, 0.5, 0.13], paint: (ctx, r) => paintText(ctx, r, 'ARM SHOP', { fill: GOLD, edge: '#c2410c', slant: 0.14 }) },
-  zone: { rect: [0.5, 0.28, 0.5, 0.12], paint: (ctx, r) => paintText(ctx, r, 'LAUNCH PAD', { fill: NAVY, edge: '#a08a10' }) },
-  ...Object.fromEntries(
-    Array.from({ length: 6 }, (_, d) => [
-      `digit${d}`,
-      { rect: [0.5 + (d * 0.5) / 6, 0.4, 0.5 / 6, 0.1], paint: (ctx, r) => paintText(ctx, r, String(d), { fill: WHITE, edge: '#9fb0c8', slant: 0, outline: '#0d2a14' }) },
-    ]),
-  ),
-  endSouth: { rect: [0, 0.5, 1, 0.14], paint: (ctx, r) => paintText(ctx, r, END_ZONE_TEXT[0].text, { fill: GOLD, edge: '#b45309', slant: 0.1 }) },
-  endNorth: { rect: [0, 0.64, 1, 0.12], paint: (ctx, r) => paintText(ctx, r, v.endNorth, { fill: WHITE, edge: '#9fb0c8', slant: 0.1 }) },
+  arch: { rect: [0.5, 0, 0.5, 0.14], paint: (ctx, r) => paintText(ctx, r, 'HIT IT FAR!', { fill: GOLD, edge: '#c2410c', slant: 0.14 }) },
+  shop: { rect: [0.5, 0.14, 0.5, 0.12], paint: (ctx, r) => paintText(ctx, r, 'BAT SHOP', { fill: GOLD, edge: '#c2410c', slant: 0.14 }) },
+  zone: { rect: [0.5, 0.26, 0.5, 0.12], paint: (ctx, r) => paintText(ctx, r, 'HOME PLATE', { fill: WHITE, edge: '#9fb0c8', slant: 0.08 }) },
+  ballShop: { rect: [0.5, 0.38, 0.5, 0.12], paint: (ctx, r) => paintText(ctx, r, 'BALL SHOP', { fill: GOLD, edge: '#c2410c', slant: 0.14 }) },
   ...Object.fromEntries(
     DIRECTIONS.map((d, i) => [
-      `dir${i}`,
-      { rect: [(i % 2) * 0.5, 0.76 + Math.floor(i / 2) * 0.11, 0.5, 0.11], paint: (ctx, r) => paintStencil(ctx, r, d.text, d.arrow) },
+      'dir' + i,
+      { rect: [(i % 2) * 0.5, 0.5 + Math.floor(i / 2) * 0.12, 0.5, 0.12], paint: (ctx, r) => paintStencil(ctx, r, d.text, d.arrow) },
     ]),
   ),
 })
-
-/**
- * The stretch lane's metre marks (5, 10 ... 40), painted beside its ticks on the west
- * side - over the pad's yellow where they're on it (its top is 0.10), on the path beyond.
- * Every number is made of the digits 0-5, all the atlas has.
- */
-function laneNumbers() {
-  const out = []
-  const w = 1.25
-  for (let m = 5; m <= MAX_PULL; m += 5) {
-    const z = LAUNCH_STAND.z + m
-    const y = z <= ROLL_ZONE.maxZ + 0.8 ? 0.14 : DECAL_Y
-    const digits = String(m).split('').map(Number)
-    digits.forEach((d, i) => {
-      const x = LAUNCH_STAND.x - 4 - (digits.length - 1 - i) * (w + 0.05)
-      out.push({ cell: `digit${d}`, width: w, at: [x, y, z], yaw: 0, flat: true })
-    })
-  }
-  return out
-}
 
 /**
  * Every quad: which cell it shows, its width in the world (its height follows the cell's
@@ -258,8 +259,7 @@ function laneNumbers() {
  * higher - at least 3 cm over whatever they're on.
  */
 function quadList() {
-  const zoneWidth = 7.5
-  const quads = [
+  return [
     { cell: 'arch', width: ARCH_SIGN.width - 0.3, at: [0, ARCH_SIGN.y, ARCH_SIGN.faceZ + 0.04], yaw: 0, flat: false },
     {
       cell: 'shop',
@@ -269,25 +269,21 @@ function quadList() {
       yaw: (SHOP_SIGN_FACING * Math.PI) / 2,
       flat: false,
     },
-    // Over the kick zone's yellow strip (top 0.10) and its navy chevrons (top 0.14).
-    // Either side of the stretch lane down its middle.
-    { cell: 'zone', width: zoneWidth, at: [-8.6, 0.18, (ROLL_ZONE.minZ + ROLL_ZONE.maxZ) / 2 + 0.3], yaw: 0, flat: true },
-    { cell: 'zone', width: zoneWidth, at: [8.6, 0.18, (ROLL_ZONE.minZ + ROLL_ZONE.maxZ) / 2 + 0.3], yaw: 0, flat: true },
-    ...laneNumbers(),
-    // The logo is drawn as a round disc, not a square, so the yard lines cut back round it
-    // never run under its (clear) corners.
+    // On the backstop's padded base, facing you as you walk up from spawn.
+    { cell: 'zone', width: 5, at: [0, 0.05, SCREEN.z + 3.4], yaw: 0, flat: true },
+    // On the ball shop's sign board, facing the plaza (west).
+    { cell: 'ballShop', width: BALL_SHOP_SIGN.width - 0.4, at: [BALL_SHOP_SIGN.x - 0.07, BALL_SHOP_SIGN.y, BALL_SHOP_SIGN.z], yaw: -Math.PI / 2, flat: false },
+    // The logo is drawn as a round disc, not a square, so nothing under it shows at its corners.
     { cell: 'logo', width: LOGO.radius * 2, at: [LOGO.x, DECAL_Y, LOGO.z], yaw: 0, flat: true, round: true },
-    ...DIRECTIONS.map((d, i) => ({ cell: `dir${i}`, width: d.width, at: [d.x, DECAL_Y, d.z], yaw: d.yaw, flat: true })),
-    ...yardNumbers().map((n) => ({ cell: `digit${n.digit}`, width: DIGIT.width, at: [n.x, DECAL_Y, n.z], yaw: 0, flat: true })),
+    ...DIRECTIONS.map((d, i) => ({ cell: 'dir' + i, width: d.width, at: [d.x, DECAL_Y, d.z], yaw: d.yaw, flat: true })),
   ]
-  return quads
 }
 
 /**
- * The painted signs, drawn once the font has loaded: "KICK IT" on the start arch, "BALL
- * SHOP" on the ball shop's sign, "KICK ZONE" across the strip at the field's mouth, and
- * the lobby field's markings - the BACKYARD STADIUM logo at midfield, the yard numbers,
- * the end zones' lettering and the direction stencils. All of them share ONE square atlas
+ * The painted signs, drawn once the font has loaded: "HIT IT FAR!" on the banner between
+ * the foul poles, "BAT SHOP" on the bat shop's sign, "HOME PLATE" on the backstop, "BALL
+ * SHOP" on the ball shop's stall, and on the ground the venue's logo at the spawn and the
+ * direction stencils. All of them share ONE square atlas
  * texture (at most the preset's texture size) and are merged into ONE mesh: a single draw
  * call. Flat ones lie 3 cm or more over what's under them, and the material is pulled
  * towards the camera in depth (polygon offset, factor and units both, so it holds even

@@ -28,8 +28,8 @@ const EGG_LOOKS = {
   sunset: { pattern: 2, glow: '#ffb347' },
   unicorn: { pattern: 3, glow: '#ffb0f0' },
   volcano: { pattern: 4, glow: '#ff6a14' },
-  // Palm Beach: sandy white, blue waves rolling round it, seashell spots.
-  beach: { pattern: 5, glow: '#5fe6ff', base: '#fff3dc', spot: '#2fb8e0', dark: '#ff8a7a' },
+  // Lava Land: black obsidian, waves of molten orange rolling round it, golden sparks.
+  beach: { pattern: 5, glow: '#ff5a14', base: '#2a1a1c', spot: '#ff6a14', dark: '#ffd21f' },
 }
 
 const vertexHead = /* glsl */ `

@@ -5,21 +5,23 @@ import { iconUrl } from './icons'
 import StrokeText from './StrokeText'
 
 const TIPS = [
-  'Hang from a pull-up bar to gain Power automatically!',
-  'More Power = you fly further, and every metre pays Wins!',
-  'Let go at the very top of the stretch for a PERFECT launch: x1.5 distance, x1.6 Wins!',
+  'Stand in a batting cage to swing and gain Power automatically!',
+  'More Power = the ball flies further, and every metre pays Wins!',
+  'Swing just as the ball reaches home plate for a PERFECT hit: x1.5 distance, x1.6 Wins!',
   'Rebirth at max level for x2, x3, x4... Power and a higher level cap.',
-  'The further you fly, the more each metre pays.',
-  'Spend Wins on stretchier arms, pets and better pull-up bars.',
+  'The further the ball flies, the more each metre pays.',
+  'Spend Wins on better bats, pets and better batting cages.',
+  'Upgrade your ball at the Ball Shop: the Fire Ball flies further and leaves a trail of flames!',
   'Pets multiply all the Power you gain.',
-  'You earn Power every second you fly!',
-  'Every pair of arms looks different - collect all 24!',
+  'You earn Power every second your ball flies!',
+  'Every bat is a different shape - wood, stone, bone, steel, gold, diamond... collect all 24!',
+  'Rebirth 8 times to open the portal to Lava Land: x3 Wins on every hit!',
 ]
 
 /**
- * The loading screen's backdrop, a launch park at golden hour in plain CSS (no image to
+ * The loading screen's backdrop, a ballpark at golden hour in plain CSS (no image to
  * download): two floodlights glowing over a deep blue sky that warms to the horizon, the
- * dark line of the far stand, and the striped runway below it. Layers, top first.
+ * dark line of the far stand, and the striped outfield grass below it. Layers, top first.
  */
 const STADIUM_BACKDROP = [
   'radial-gradient(circle at 14% 20%, rgba(255,250,225,0.95) 0 0.9%, rgba(255,236,190,0.35) 3%, transparent 9%)',
@@ -66,14 +68,14 @@ export function LoadingScreen({ done }) {
       }}
     >
       <div className="pp-loading-disc" aria-hidden="true">
-        <img src={iconUrl('tire')} alt="" width="150" height="150" draggable={false} />
+        <img src={iconUrl('bat')} alt="" width="150" height="150" draggable={false} />
       </div>
 
-      {/* The game's name: +1 ARM over a big rainbow LENGTH, tilted like a sticker. */}
+      {/* The game's name: +1 BASEBALL over a big rainbow LAUNCH, tilted like a sticker. */}
       <h1 className="m-0 flex flex-col items-center text-center leading-none" style={{ transform: 'rotate(-3deg)' }}>
-        <span style={{ fontSize: 'clamp(36px, 8vw, 84px)' }}>
+        <span style={{ fontSize: 'clamp(30px, 7vw, 72px)' }}>
           <StrokeText stroke="0.16em" gradient="linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #ffe36b 56%, #ffb21e 100%)">
-            +1 ARM
+            +1 BASEBALL
           </StrokeText>
         </span>
         <span style={{ fontSize: 'clamp(44px, 10vw, 118px)', marginTop: '-0.08em' }}>
@@ -81,11 +83,11 @@ export function LoadingScreen({ done }) {
             stroke="0.15em"
             gradient="linear-gradient(90deg, #ff4a4a 0%, #ff9a1e 18%, #ffe23a 36%, #4be05a 54%, #2fd0ff 72%, #b05cff 90%, #ff5fd2 100%)"
           >
-            LENGTH
+            LAUNCH
           </StrokeText>
         </span>
         <span className="text-base md:text-xl" style={{ marginTop: '0.4em' }}>
-          <StrokeText stroke={5}>TRAIN • STRETCH • FLY • REBIRTH</StrokeText>
+          <StrokeText stroke={5}>TRAIN • SWING • LAUNCH • REBIRTH</StrokeText>
         </span>
       </h1>
 

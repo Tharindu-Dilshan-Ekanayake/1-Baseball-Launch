@@ -19,8 +19,8 @@ import { PALETTE, VENUES } from '../sceneStyle'
  * it, trusses on top and the team's flags along its back edge.
  *
  * Built in the colours of the world's venue (sceneStyle VENUES): royal blue, white and gold
- * in the Backyard Stadium, turquoise, coral and sand at Palm Beach (where the ocean takes
- * the skyline's place: beach.js).
+ * at the Sunny Ballpark, basalt and orange in Lava Land (where the lava sea takes the
+ * skyline's place). (Only the scoreboard and floodlights are built now: World.jsx.)
  *
  * Everything is boxes in the world's block set: no draw calls of its own, nothing to do
  * per frame. Layers that touch are at least 3 cm apart or meet face-to-face, never
@@ -165,9 +165,11 @@ function buildPavilion(p, index, blocks, { detail, crowd, v }) {
 
 /**
  * A floodlight tower at (x, z) with its bank of lamps turned to face the plaza: a tall
- * pole on a base, a dark frame at the top and 4 x 3 glowing lamps on it.
+ * pole on a base, a dark frame at the top and 4 x 3 glowing lamps on it (in the venue's
+ * light: warm white at the ballpark, orange in Lava Land).
  */
-function addFloodlight(blocks, x, z, v) {
+export function addFloodlight(blocks, x, z, v) {
+  const lamp = v.field?.lights ?? '#fffbe0'
   const height = 36
   const yaw = Math.atan2(-x, 8 - z)
   const right = [Math.cos(yaw), -Math.sin(yaw)]
@@ -180,20 +182,21 @@ function addFloodlight(blocks, x, z, v) {
   for (let col = 0; col < 4; col += 1) {
     for (let row = 0; row < 3; row += 1) {
       const u = (col - 1.5) * 2.4
-      blocks.add(x + right[0] * u + front[0] * 1.45, bankY + (row - 1) * 2, z + right[1] * u + front[1] * 1.45, 1.9, 1.5, 0.3, '#fffbe0', STYLE.GLOW, yaw)
+      blocks.add(x + right[0] * u + front[0] * 1.45, bankY + (row - 1) * 2, z + right[1] * u + front[1] * 1.45, 1.9, 1.5, 0.3, lamp, STYLE.GLOW, yaw)
     }
   }
 }
 
-/** The scoreboard behind the south pavilion's roof, on two pylons: its lettering is a world label (lobbyLabels.js). */
+/** The scoreboard on the south hills, on two pylons: its lettering is a world label (lobbyLabels.js). */
 export const SCOREBOARD = { x: 0, z: PLAZA.maxZ + 14, y: WALL_TOP + 2.6, width: 30, height: 12 }
 
 export function addScoreboard(blocks, v) {
   const { x, z, y, width, height } = SCOREBOARD
   for (const side of [-1, 1]) blocks.addOn(x + side * (width / 2 - 3), 0, z + 0.4, 1.4, y, 1.2, v.dark, STYLE.SMOOTH)
-  // Frame, navy screen, glowing gold edge and a row of blue/white lamps along the top.
-  blocks.addOn(x, y, z, width + 1.6, height + 1.6, 1.4, '#cfd6e4', STYLE.SMOOTH)
-  blocks.addOn(x, y + 0.8, z - 0.2, width, height, 1.4, '#0e1740', STYLE.SMOOTH)
+  // Frame, the classic ballpark-green board (scorched black in Lava Land), a glowing edge
+  // and a row of lamps along the top.
+  blocks.addOn(x, y, z, width + 1.6, height + 1.6, 1.4, v.lava ? '#3a2c2c' : '#cfd6e4', STYLE.SMOOTH)
+  blocks.addOn(x, y + 0.8, z - 0.2, width, height, 1.4, v.board ?? '#0e1740', STYLE.SMOOTH)
   blocks.addOn(x, y + 0.5, z - 1, width - 0.6, 0.35, 0.2, v.accent, STYLE.GLOW)
   blocks.addOn(x, y + height + 0.7 - 0.35, z - 1, width - 0.6, 0.35, 0.2, v.accent, STYLE.GLOW)
   for (const side of [-1, 1]) blocks.addOn(x + side * (width / 2 - 0.3), y + 0.8, z - 1, 0.35, height, 0.2, v.accent, STYLE.GLOW)
@@ -258,8 +261,8 @@ function addSkyline(blocks, count) {
 /**
  * Builds the stadium into `blocks`, in the colours of `world`'s venue. `density` (0-1, the
  * preset's decorDensity): the crowd is full at 0.75+, thinner at 0.5+, none on LOW, which
- * also loses the rails, trusses and mullions and gets a smaller skyline. Palm Beach has no
- * skyline: the ocean and its islands are round it instead (beach.js). Returns how many fans
+ * also loses the rails, trusses and mullions and gets a smaller skyline. Lava Land has no
+ * skyline: the lava sea is round it instead (Ocean.jsx). Returns how many fans
  * and buildings were placed (for tests/debug).
  */
 export function buildTerrain(blocks, { density = 1, world = 0 } = {}) {
@@ -276,6 +279,6 @@ export function buildTerrain(blocks, { density = 1, world = 0 } = {}) {
   addFloodlight(blocks, 38, -44, v)
   addFloodlight(blocks, -38, -44, v)
   addScoreboard(blocks, v)
-  const buildings = v.beach ? 0 : addSkyline(blocks, density >= 0.75 ? 56 : density >= 0.5 ? 44 : 28)
+  const buildings = v.lava ? 0 : addSkyline(blocks, density >= 0.75 ? 56 : density >= 0.5 ? 44 : 28)
   return { people, buildings }
 }

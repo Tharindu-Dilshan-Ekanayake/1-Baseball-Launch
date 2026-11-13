@@ -1,23 +1,25 @@
 /**
  * Plays the game with the real rules (shared/logic.js) as a sensible, greedy player and
- * prints the pacing: when each rebirth, tire, egg and zone arrives. Run it after any
+ * prints the pacing: when each rebirth, bat, ball, egg and stage arrives. Run it after any
  * change to shared/balance.js:
  *
  *   node scripts/balance-sim.mjs [hours=6]
  *
- * The player: trains on the best pad it has until its Health is well up on its last
- * roll (or it hits max level), rolls, then spends - the next tire first, then eggs,
- * passes and pads. At max level it rolls a few times for Wins, then rebirths. Walking
- * between the pads and the roll zone, and the fade back after a roll, cost time too.
+ * The player: swings in the best cage it has until its Power is well up on its last
+ * hit (or it hits max level), hits, then spends - the next bat first, then the next ball
+ * (when it costs no more than the next bat), then eggs, passes and cages. At max level it
+ * hits a few times for Wins, then rebirths. Walking between the cages and home plate, and
+ * the fade back after a hit, cost time too. (Bats are the code's `tire`s.)
  * No potions, no daily rewards, no packs: a free player's floor.
  */
-import { EGGS, healthForLevel, levelCap, PADS, PETS, rollDuration, ROLL_RECOVERY, SHOP, TIRES, TRAIN_INTERVAL, WORLD_ZONES, ZONES } from '../shared/balance.js'
+import { BALLS, EGGS, healthForLevel, levelCap, PADS, PETS, rollDuration, ROLL_RECOVERY, SHOP, TIRES, TRAIN_INTERVAL, WORLD_ZONES, ZONES } from '../shared/balance.js'
 import { formatDistance, formatNumber } from '../shared/format.js'
 import {
   applyRebirth,
   applyRoll,
   applyRollTick,
   applyTrain,
+  buyBall,
   buyShopItem,
   buyTire,
   claimSecretStar,
@@ -27,6 +29,7 @@ import {
   hatchEgg,
   isMaxLevel,
   isPadUnlocked,
+  nextBall,
   nextTire,
   petMultiplier,
   rollOutcome,
@@ -61,7 +64,7 @@ function roll() {
   const key = p.world === 1 ? 'bestZone2' : 'bestZone'
   const before = p.stats[key]
   const r = applyRoll(p, t * 1000)
-  // Health ticks in while the tire rolls.
+  // Power ticks in while the ball flies.
   for (let s = 1; s <= Math.floor(r.duration); s += 1) applyRollTick(p, t * 1000)
   t += r.cooldown + FADE_BACK
   lastRollHealth = p.health
@@ -69,7 +72,7 @@ function roll() {
   for (let z = before + 1; z <= p.stats[key]; z += 1) mark(`ZONE  ${zones[z].name} reached (+${formatNumber(zones[z].discover)} Wins prize)`)
   // Through the portal as soon as it opens.
   if (process.env.NO_WORLD2 !== '1' && p.world === 0 && usePortal(p).ok) {
-    mark(`PALM BEACH at R${p.rebirths} with ${formatNumber(p.wins)} Wins`)
+    mark(`LAVA LAND at R${p.rebirths} with ${formatNumber(p.wins)} Wins`)
     // An active player finds the Secret Star soon after arriving (NO_STAR=1 to skip).
     if (process.env.NO_STAR !== '1' && claimSecretStar(p)) mark('STAR  Secret Star found: x2 Power')
   }
@@ -94,7 +97,13 @@ function spend() {
     const tire = nextTire(p)
     if (tire && p.wins >= tire.cost) {
       buyTire(p, tire.id)
-      mark(`TIRE  ${tire.name} (+${formatNumber(tire.power)}) for ${formatNumber(tire.cost)}`)
+      mark(`BAT   ${tire.name} (+${formatNumber(tire.power)}) for ${formatNumber(tire.cost)}`)
+      continue
+    }
+    const ball = nextBall(p)
+    if (ball && p.wins >= ball.cost && (!tire || ball.cost <= tire.cost)) {
+      buyBall(p, ball.id)
+      mark(`BALL  ${ball.name} (x${ball.reach} distance, x${ball.wins} Wins) for ${formatNumber(ball.cost)}`)
       continue
     }
     // Passes, cheapest first, once they're under a third of what we hold.
@@ -136,7 +145,7 @@ while (t < HOURS * 3600) {
     const out = rollOutcome(p.health)
     applyRebirth(p)
     mark(
-      `REBIRTH -> R${p.rebirths}  (${clock(t - rebirthAt)} since last) | tire ${tireById(p.equippedTire).name}, pets x${petMultiplier(p).toFixed(1)}, ` +
+      `REBIRTH -> R${p.rebirths}  (${clock(t - rebirthAt)} since last) | bat ${tireById(p.equippedTire).name}, ball ${p.equippedBall}, pets x${petMultiplier(p).toFixed(1)}, ` +
         `${formatDistance(out.distance)}${out.blocked > 0 ? ` stopped by the ${ZONES[out.blocked].name} wall` : ''}, wins ${formatNumber(p.wins)}`,
     )
     rebirthAt = t
@@ -166,7 +175,7 @@ while (t < HOURS * 3600) {
 
 for (const { t: at, what } of log) console.log(`${clock(at)}  ${what}`)
 console.log()
-console.log(`After ${HOURS} h: R${p.rebirths}, level ${p.level}/${levelCap(p.rebirths)}, tire ${tireById(p.equippedTire).name}, ` +
-  `best ${formatDistance(p.stats.bestDistance)} (${ZONES[p.stats.bestZone].name}), ${formatNumber(p.stats.totalWins)} Wins earned, ${p.stats.rolls} rolls`)
-console.log(`Cap health R${p.rebirths}: ${formatNumber(healthForLevel(levelCap(p.rebirths)))}; roll duration at best: ${rollDuration(p.stats.bestDistance).toFixed(1)} s + ${ROLL_RECOVERY} s`)
-console.log(`Tires owned ${p.ownedTires.length}/${TIRES.length}`)
+console.log(`After ${HOURS} h: R${p.rebirths}, level ${p.level}/${levelCap(p.rebirths)}, bat ${tireById(p.equippedTire).name}, ball ${p.equippedBall}, ` +
+  `best ${formatDistance(p.stats.bestDistance)} (${ZONES[p.stats.bestZone].name}), ${formatNumber(p.stats.totalWins)} Wins earned, ${p.stats.rolls} hits`)
+console.log(`Cap power R${p.rebirths}: ${formatNumber(healthForLevel(levelCap(p.rebirths)))}; hit duration at best: ${rollDuration(p.stats.bestDistance).toFixed(1)} s + ${ROLL_RECOVERY} s`)
+console.log(`Bats owned ${p.ownedTires.length}/${TIRES.length}, balls owned ${p.ownedBalls.length}/${BALLS.length}`)
