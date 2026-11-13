@@ -3,9 +3,10 @@ import { useEffect, useRef } from 'react'
 import { Vector3 } from 'three'
 
 import { getBloxityState } from '../bloxity/store'
-import { launch } from './launch'
+import { STATIONS } from '@shared/world'
+
+import { isPulling, launch, slowAt } from './launch'
 import { placeLocalBubble } from './remote/nameplates'
-import { PULL_DIST } from './roll/path'
 import { runtime } from './runtime'
 
 /** How high above the player's feet the camera aims. */
@@ -29,8 +30,31 @@ const LOOK_SMOOTHING = 14
 
 const _desired = new Vector3()
 const _target = new Vector3()
-/** How far the view has swung round for the stretch (0-1), eased. */
-let stretchView = 0
+const _batTarget = new Vector3()
+/** How far the view has swung round to the batting view (0-1), and into slow motion, eased. */
+let batView = 0
+let slowView = 0
+/**
+ * The batting view: side-on to your batter, from the plate's side and a little round
+ * towards their front, at about chest height - the whole of you head to foot, your bat,
+ * the ball you toss up and the swing you take at it, all clear of the HUD. Framed so you
+ * stand on the left third (your feet just above the bottom bar), the ball going up and
+ * coming down just in front of you - topping out under the meter and meeting the bat
+ * right above the HIT button in the middle - with the field you're about to hit into
+ * behind. On a narrow screen held upright it frames tighter round you (`narrowX`) so
+ * nothing falls off the side. It breathes a little while you wait (`drift`); in the slow
+ * motion it pushes in a touch (`slow`), never so far it loses your feet.
+ */
+const BAT_VIEW = {
+  /** What it looks at, from your station's batter spot (x: on a wide screen; narrowX upright). */
+  offset: new Vector3(3.45, 1.85, -0.2),
+  narrowX: 1.3,
+  yaw: 0.4,
+  pitch: 0.05,
+  distance: 4.5,
+  drift: 0.02,
+  slow: { distance: -0.45, height: 0, yaw: 0.03 },
+}
 
 /**
  * Third-person orbit camera around the player.
@@ -133,17 +157,24 @@ export function FollowCamera() {
     }
     const delta = Math.min(rawDelta, 0.05)
     const p = runtime.player.position
-    // Holding the launch posts: swing round to three-quarters on, back and a little lower,
-    // so the stretching arms and the posts stay in view (and clear of the LAUNCH button
-    // below), more the further back you've walked.
-    const want = launch.gripping || launch.released ? 0.35 + 0.65 * Math.min(1, launch.back / PULL_DIST) : 0
-    stretchView += (want - stretchView) * (1 - Math.exp(-6 * delta))
-    _target.set(p.x, p.y + LOOK_HEIGHT - 1.3 * stretchView, p.z)
+    // Up at bat: swing round to the batting view (BAT_VIEW).
+    const want = isPulling() ? 1 : 0
+    batView += (want - batView) * (1 - Math.exp(-5 * delta))
+    slowView += (slowAt() - slowView) * (1 - Math.exp(-4 * delta))
+    const b = batView * batView * (3 - 2 * batView)
+    const sv = slowView * b
+    const station = STATIONS[launch.station] ?? STATIONS[0]
+    // Wide screens frame you on the left third; narrow upright ones tighter round you.
+    const wide = Math.min(1, Math.max(0, (state.size.width / Math.max(1, state.size.height) - 0.6) / 1.1))
+    _batTarget.set(station.spotX, BAT_VIEW.slow.height * sv, station.spotZ).add(BAT_VIEW.offset)
+    _batTarget.x += (BAT_VIEW.narrowX - BAT_VIEW.offset.x) * (1 - wide)
+    _target.set(p.x, p.y + LOOK_HEIGHT, p.z).lerp(_batTarget, b)
 
     // Spherical -> cartesian. yaw 0 puts the camera south of the player, looking north.
-    const yaw = runtime.camera.yaw + 0.75 * stretchView
-    const pitch = runtime.camera.pitch + 0.16 * stretchView
-    const distance = runtime.camera.distance + 1.5 * stretchView
+    const drift = Math.sin(performance.now() * 0.0004) * BAT_VIEW.drift * b * (1 - sv)
+    const yaw = runtime.camera.yaw + (BAT_VIEW.yaw - runtime.camera.yaw) * b + BAT_VIEW.slow.yaw * sv + drift
+    const pitch = runtime.camera.pitch + (BAT_VIEW.pitch - runtime.camera.pitch) * b
+    const distance = runtime.camera.distance + (BAT_VIEW.distance - runtime.camera.distance) * b + BAT_VIEW.slow.distance * sv
     const horizontal = Math.cos(pitch) * distance
     _desired.set(
       _target.x + Math.sin(yaw) * horizontal,

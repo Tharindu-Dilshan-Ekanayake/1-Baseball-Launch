@@ -30,12 +30,13 @@ import { spawnScattered } from '../fx/popups'
 import { sharedMaterials, STYLE } from '../materials'
 import { runtime } from '../runtime'
 import { activeWorld, perWorld, showLobbySky, zones } from '../worldLook'
-import { tireGlow } from '../tire'
+import { ballTrail } from '../balls'
 import { writeDistance, writeSpeed, writeZone } from './hudLink'
+import BallFlight from './BallFlight'
 import FireBurst from '../fx/FireBurst'
 import Impact from './Impact'
 import Lane from './Lane'
-import { trackPoint } from './path'
+import { CONTACT, KICK_HIT, trackPoint } from './path'
 import RollFX from './RollFX'
 import { linkPrograms } from '../linkPrograms'
 import { advanceRoll, roll } from './rollControl'
@@ -46,7 +47,7 @@ import Weather from './Weather'
 
 const MAX_TROPHIES = 16
 const STREAKS = 36
-/** Trophies float this high over the kick's line. */
+/** Trophies float this high over the ball's line. */
 const TROPHY_HEIGHT = 3.4
 /**
  * Frame-loop priority: before every other system, so the chase camera has moved before
@@ -82,8 +83,8 @@ const TROPHY_POPUP = { iconUrl: TROPHY_ICON, scale: 1.2 }
 
 /**
  * Speed-line streaks, made once: alternately down the left and right of the view (well
- * clear of you and the distance counter), each a little thicker or longer than the next,
- * and every third tinted with your arms' colour.
+ * clear of the ball and the distance counter), each a little thicker or longer than the
+ * next, and every third tinted with your ball's colour.
  */
 const streakState = (() => {
   const r = mulberry32(5)
@@ -154,9 +155,11 @@ const zoneNameGradients = perWorld((zs) =>
     return `linear-gradient(180deg, ${a} 0%, ${b} 45%, ${c} 100%)`
   }),
 )
-/** Sideways, in metres, the camera starts for the launch (and swings back from), to see the stretch side on. */
-const KICK_CAM_SIDE = 3
-/** The launch camera's start: behind you, up, and the height it looks at. */
+/** Sideways, in metres, the camera starts for the hit (and swings in from), to see the swing. */
+const KICK_CAM_SIDE = 2.2
+/** Seconds the camera holds on the batting view as the bat meets the ball. */
+const CONTACT_HOLD = KICK_HIT + 0.14
+/** The hit camera's start: behind the ball, up, and the height it looks at. */
 const KICK_CAM_BEHIND = 4.6
 const KICK_CAM_HEIGHT = 2.4
 const KICK_LOOK_HEIGHT = 0.6
@@ -177,10 +180,9 @@ function createTrophyGeometry() {
 }
 
 /**
- * Lazily loaded: the runway and its trophies, the speed lines and the chase camera while
- * you fly (your avatar flies itself: Player.jsx; other players' fly theirs: remote/).
- * While nobody is launching it still streams the first stretch, which is the runway you
- * see from the lobby.
+ * Lazily loaded: the field and its trophies, the balls in flight (BallFlight), the speed
+ * lines and the chase camera that follows your ball down the field. While nobody is
+ * hitting it still streams the first stretch, which is the field you see from the lobby.
  */
 export default function Roll() {
   const camera = useThree((s) => s.camera)
@@ -312,35 +314,37 @@ export default function Roll() {
         // On the launch's own clock, so the camera freezes with you in slow motion.
         const elapsed = (now - roll.startedAt - roll.lag) / 1000
         if (roll.phase === 'stopped' || roll.crashed) {
-          // Stopped: swing round to the side and in, onto you getting up to celebrate.
+          // Stopped: swing round to the side and down, onto the ball where it came to rest.
           const k = smoothstep(0, 1.4, elapsed - roll.duration + (roll.crashed ? 0.5 : 0))
-          const angle = (Math.floor(roll.distance) % 2 === 0 ? 1 : -1) * 0.7 * k
-          const dist = 12 - 3.5 * k
-          const height = 5.4 - 1.6 * k
-          _cam.set(Math.sin(angle) * dist, height + Math.cos(angle) * dist * 0.15, Math.cos(angle) * dist).add(p)
+          const angle = (Math.floor(roll.distance) % 2 === 0 ? 1 : -1) * 0.8 * k
+          const dist = 8.5 - 3.5 * k
+          const height = 4 - 1.8 * k
+          _cam.set(Math.sin(angle) * dist, height + Math.cos(angle) * dist * 0.1, Math.cos(angle) * dist).add(p)
           camBase.lerp(_cam, 1 - Math.exp(-4 * delta))
-          _look.copy(p).y += 0.6
+          _look.copy(p).y += 0.35
         } else {
           // Chase camera: behind and above the ball, looking down the field. Locked to it
-          // along the field (at hundreds of yd/s any lag leaves it far behind);
-          // eased sideways so the weaving stays smooth, and eased in from the lobby
-          // camera - close for the kick, pulling back once it's off.
-          //
-          // For the kick it starts low, close and to one side, looking at the player's
-          // kicking foot and the ball on its tee, so you see them meet; then it swings in
-          // behind and pulls back as the ball goes.
+          // along the field (at hundreds of m/s any lag leaves it far behind); eased
+          // sideways so the drift stays smooth, and eased in from the batting camera -
+          // close on the bat meeting the ball, pulling back once it's off.
           const off = smoothstep(0.55, 1.5, elapsed)
           const behind = KICK_CAM_BEHIND + (8.2 - KICK_CAM_BEHIND) * off + Math.min(speed, 300) * 0.006
           trackPoint(roll.meter - behind, 0, KICK_CAM_HEIGHT + (4 - KICK_CAM_HEIGHT) * off + roll.air, _cam)
+          // A beat on the batting view first, so you see the bat meet the ball - then it
+          // whips round after it.
+          const held = elapsed < CONTACT_HOLD
           const easingIn = elapsed < 1.1
-          const kIn = easingIn ? 1 - Math.exp(-8 * delta) : 1
-          const kx = easingIn ? kIn : 1 - Math.exp(-5 * delta)
+          const kIn = held ? 0 : easingIn ? 1 - Math.exp(-9 * delta) : 1
+          const kx = held ? 0 : easingIn ? kIn : 1 - Math.exp(-5 * delta)
           camBase.set(
             camBase.x + (p.x * 0.7 + KICK_CAM_SIDE * (1 - off) - camBase.x) * kx,
             camBase.y + (_cam.y - camBase.y) * kIn,
             camBase.z + (_cam.z - camBase.z) * kIn,
           )
           trackPoint(roll.meter - 0.6 + 12.6 * off, p.x * 0.85, KICK_LOOK_HEIGHT + (1.6 - KICK_LOOK_HEIGHT) * off + roll.air * 0.8, _look)
+          // From the bat to the ball as it goes.
+          _v.set(roll.startX, CONTACT.y, CONTACT.z)
+          _look.lerpVectors(_v, _look, smoothstep(CONTACT_HOLD - 0.1, CONTACT_HOLD + 0.35, elapsed))
         }
         // Shake: a rumble that grows with speed, and a jolt on landings, wall hits and a
         // PERFECT hit's blast-off.
@@ -434,9 +438,9 @@ export default function Roll() {
         lines.count = 0
       } else {
         if (streakTintedFor.current !== roll.startedAt) {
-          // Once a launch: the tinted ones take your arms' colour, softened towards white.
+          // Once a hit: the tinted ones take your ball's colour, softened towards white.
           streakTintedFor.current = roll.startedAt
-          _tint.copy(tireGlow(roll.tireId)).lerp(WHITE, 0.35)
+          _tint.copy(ballTrail(roll.ballId)).lerp(WHITE, 0.35)
           for (let i = 0; i < STREAKS; i += 1) lines.setColorAt(i, streakState[i].tinted ? _tint : WHITE)
           lines.instanceColor.needsUpdate = true
         }
@@ -464,6 +468,7 @@ export default function Roll() {
     <group ref={rootRef}>
       <Lane />
       <Impact />
+      <BallFlight />
       <FireBurst />
       <primitive ref={trophyRef} object={assets.trophies} />
       <Weather />

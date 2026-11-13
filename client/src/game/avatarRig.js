@@ -610,14 +610,15 @@ function rotateBone(rig, name, which, angle) {
 }
 
 /**
- * Poses the rig for the current motion state.
+ * Poses the rig for the current motion state. Returns the pose (playerPose: its `bat` says
+ * where the bat goes), or null if the rig can't be posed.
  *
  * @param {object} rig from `collectRig`
  * @param {object} motion see `computePose`
  * @param {number} unitsPerMetre rig units in one world metre, for the body's lift
  */
 export function animateRig(rig, motion, unitsPerMetre = 1) {
-  if (!rig?.skeleton || !motion) return
+  if (!rig?.skeleton || !motion) return null
   const pose = computePose(motion)
   for (const name of POSED_BONES) {
     const joint = pose.bones[name]
@@ -634,6 +635,7 @@ export function animateRig(rig, motion, unitsPerMetre = 1) {
   const fitted = (s) => (s <= 1 ? Math.max(0.6, s) : Math.max(1, s * fit))
   stretchArm(rig, 'ArmL1', fitted(pose.stretchL))
   stretchArm(rig, 'ArmR1', fitted(pose.stretchR))
+  return pose
 }
 
 /* ---------------------------------------------------------------------------

@@ -4,8 +4,8 @@ import { STYLE } from '../materials'
 
 /**
  * Egg stands: a blue-and-white pedestal ringed in light, plus the big Volcano Egg's
- * rocky plinth (with its lava pool and smoking vents), the big Beach Egg's sandy one and
- * the Sphinx showcase. Blocks and merged props,
+ * rocky plinth (with its lava pool and glowing vents), the big Lava Egg's obsidian one
+ * and the Sphinx showcase. Blocks and merged props,
  * riding along in the world's existing draw calls; the eggs themselves float above in
  * EggDisplays.
  */
@@ -17,30 +17,31 @@ const RING = { basic: '#7fe2ff', meadow: '#5cff6a', sunset: '#ffb347', unicorn: 
 export const eggHeight = (stand) => (stand.big ? 3.4 : 2.6)
 
 /**
- * The Beach Egg's plinth (its twin across the plaza from the Volcano's): stepped sand
- * round a ring of shallow water, a coral and a yellow starfish, seashells, and a little
- * striped beach umbrella leaning over it. Every layer 4 cm or more proud of the last.
+ * The Lava Egg's plinth (its twin across the plaza from the Volcano's): stepped obsidian
+ * round a ring of glowing magma, black glass spikes leaning out at its corners tipped with
+ * fire, and four fire bowls. Every layer 4 cm or more proud of the last.
  */
-function buildBeachStand(blocks, { x, z }) {
-  blocks.addOn(x, 0, z, 4.2, 0.6, 4.2, '#f2dca0')
-  blocks.addOn(x, 0.6, z, 3.6, 0.3, 3.6, '#3fc6d8', STYLE.WATER)
-  blocks.addOn(x, 0.9, z, 3, 0.3, 3, '#ead196')
-  // Starfish on the top sand: two crossed bars each, the second 4 cm over the first.
-  for (const [dx, dz, color] of [[-1.0, 1.0, '#ff6f61'], [1.05, -0.95, '#ffc93a']]) {
-    blocks.add(x + dx, 1.26, z + dz, 0.9, 0.12, 0.22, color, STYLE.SMOOTH, 0.3)
-    blocks.add(x + dx, 1.3, z + dz, 0.9, 0.12, 0.22, color, STYLE.SMOOTH, 0.3 + Math.PI / 2.5)
+function buildLavaStand(blocks, { x, z }) {
+  blocks.addOn(x, 0, z, 4.2, 0.6, 4.2, '#1e161c')
+  blocks.addOn(x, 0.6, z, 3.6, 0.3, 3.6, '#ff5a14', STYLE.LAVA)
+  blocks.addOn(x, 0.9, z, 3, 0.3, 3, '#2a1e26')
+  // Obsidian spikes leaning out from the corners, each with a flame on its tip.
+  for (const [dx, dz] of [[-1.9, -1.9], [1.9, -1.9], [-1.9, 1.9], [1.9, 1.9]]) {
+    const lean = 0.28
+    blocks.add(x + dx, 1.4, z + dz, 0.55, 2.8, 0.55, '#160f18', STYLE.SMOOTH, Math.PI / 4, -Math.sign(dz) * lean, Math.sign(dx) * lean)
+    blocks.add(x + dx * 1.16, 2.95, z + dz * 1.16, 0.34, 0.5, 0.34, '#ff6a1e', STYLE.GLOW)
   }
-  for (const [dx, dz] of [[1.05, 1.0], [-1.05, -1.0]]) blocks.addOn(x + dx, 1.2, z + dz, 0.32, 0.18, 0.26, '#fff0f4', STYLE.SMOOTH)
-  // The umbrella: a pole at one corner, clear of the egg, and a two-layer canopy.
-  blocks.addOn(x + 1.9, 0.6, z - 1.9, 0.1, 3.5, 0.1, '#ffffff', STYLE.SMOOTH)
-  blocks.add(x + 1.9, 4.16, z - 1.9, 1.6, 0.12, 1.6, '#16b8c4', STYLE.SMOOTH, 0.3)
-  blocks.add(x + 1.9, 4.32, z - 1.9, 1.1, 0.12, 1.1, '#ff6f61', STYLE.SMOOTH, 0.3 + Math.PI / 4)
+  // Fire bowls on the step between the spikes.
+  for (const [dx, dz] of [[0, -1.95], [0, 1.95], [-1.95, 0], [1.95, 0]]) {
+    blocks.addOn(x + dx, 0.6, z + dz, 0.5, 0.18, 0.5, '#3a2a2a', STYLE.SMOOTH)
+    blocks.addOn(x + dx, 0.78, z + dz, 0.3, 0.32, 0.3, '#ffb21a', STYLE.GLOW)
+  }
 }
 
 export function buildEggStands(blocks) {
   for (const stand of EGG_STANDS) {
     if (stand.eggId === 'beach') {
-      buildBeachStand(blocks, stand)
+      buildLavaStand(blocks, stand)
       continue
     }
     if (stand.big) {

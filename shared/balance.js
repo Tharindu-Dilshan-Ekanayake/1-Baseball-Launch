@@ -1,40 +1,42 @@
 /**
  * Every tunable number in the game. Rules live in logic.js; this file is only data,
  * so balancing never means touching code. `scripts/balance-sim.mjs` plays the game
- * with these numbers and prints the pacing (time to each rebirth, arm and stage).
+ * with these numbers and prints the pacing (time to each rebirth, bat and stage).
  *
  * Shared by client (display) and server (authority): both always agree on costs and
  * multipliers because they read the same table.
  *
- * The loop (Rubber Arm Launch): do rubber-arm pull-ups for Power -> grab the launch
- * posts, walk back stretching your arms like a slingshot and let go (more Power flings you
- * further, and every metre pays) -> Wins -> stretchier arms, eggs and pull-up bars ->
- * rebirth at max level for a bigger Power multiplier and a higher cap -> fly further
- * still.
+ * The loop (+1 Baseball Launch): swing in the batting cages for Power -> step up to home
+ * plate, toss the ball up and time your swing as it falls (more Power hits it further, and every
+ * metre it flies and bounces pays) -> Wins -> better bats, balls, eggs and cages ->
+ * rebirth at max level for a bigger Power multiplier and a higher cap -> hit further
+ * still -> Lava Land (World 2).
  *
  * Inside the code the template's names stay (so saves and the server never change):
- * `health` is Power, a `tire` is a pair of ARMS, a `pad` is a pull-up bar and a `roll` is
- * a launch. Only what players see was renamed. How each arm looks is
- * client/src/game/armStyles.js.
+ * `health` is Power, a `tire` is a BAT, a `pad` is a batting cage and a `roll` is a hit.
+ * Only what players see was renamed. How each bat looks is client/src/game/bats.js, each
+ * ball client/src/game/balls.js.
  */
 
 // --- Health and levels --------------------------------------------------------------
 
-/** Seconds between gains doing pull-ups on a bar: one rep, one gain. */
+/** Seconds between gains swinging in a batting cage: one swing, one gain. */
 export const TRAIN_INTERVAL = 0.6
-/** Seconds between the "+N" gains you earn while you fly. */
+/** Seconds between the "+N" gains you earn while your ball flies. */
 export const ROLL_TICK = 1
 /**
- * Walking around the lobby earns Health too: one gain for every WALK_STEP metres
- * walked (about one a second at a walk). Less than a pad, so training still pays.
+ * Clicking (or tapping) anywhere outside home plate and the cages swings your bat at a
+ * ball you toss up yourself: one gain each, at most one every CLICK_INTERVAL seconds. The
+ * same gain as the free cage - but you have to keep clicking, and better cages multiply
+ * theirs. (Walking earns nothing.)
  */
-export const WALK_STEP = 8
+export const CLICK_INTERVAL = 0.5
 
 /**
  * Your level comes from your Health: reaching level L takes healthForLevel(L) Health.
  * Each level needs LEVEL_GROWTH_EARLY times the last at first, easing towards
- * LEVEL_GROWTH_LATE: early rebirths multiply your gains many times over (a new bar,
- * x2 from the rebirth itself, the next arms), later ones much less, and the levels
+ * LEVEL_GROWTH_LATE: early rebirths multiply your gains many times over (a new cage,
+ * x2 from the rebirth itself, the next bat), later ones much less, and the levels
  * keep step so every rebirth takes a little longer than the one before.
  */
 export const LEVEL_BASE = 20
@@ -94,71 +96,97 @@ export function nextRebirthGift(rebirths) {
 /** Skipping straight to a rebirth costs this many max-level launches' worth of Wins. */
 export const REBIRTH_SKIP_ROLLS = 10
 
-// --- Training pads (pull-up bars) ------------------------------------------------
+// --- Training pads (batting cages) ----------------------------------------------
 
 /**
- * Rubber pull-up bars, south to north in world.js order. Hanging from one does a rep
- * (and gains Health) every TRAIN_INTERVAL: your arms stretch as you drop and snap back as
- * you pull up. `rebirths` = rebirths needed; `product` = the SHOP pass that unlocks it
- * instead; `world` = the only world it works in (the beach bars at the north end of the
- * row work in Palm Beach only, and stand locked in World 1 as a teaser).
+ * Batting cages, south to north in world.js order. Standing in one, a pitching machine
+ * feeds you a ball every TRAIN_INTERVAL and you smash it into the net (and gain Power).
+ * `rebirths` = rebirths needed; `product` = the SHOP pass that unlocks it instead;
+ * `world` = the only world it works in (the two lava cages at the north end of the row
+ * work in Lava Land only, and stand locked in World 1 as a teaser).
  */
 export const PADS = [
-  { id: 'starter', name: 'Wooden Bar', mult: 1, rebirths: 0 },
-  { id: 'speed', name: 'Bouncy Bar', mult: 2, rebirths: 1 },
-  { id: 'turbo', name: 'Bubblegum Bar', mult: 4, rebirths: 2 },
-  { id: 'nitro', name: 'Steel Bar', mult: 10, rebirths: 4 },
-  { id: 'rocket', name: 'Rocket Bar', mult: 20, rebirths: 6 },
-  { id: 'diamond', name: 'Crystal Bar', mult: 40, product: 'padVeryOp', tag: 'VERY OP!' },
-  { id: 'galaxy', name: 'Galaxy Bar', mult: 100, product: 'padBest', tag: 'BEST OVERALL!' },
-  // Kept close to the Galaxy Bar: every Power multiplier here speeds up the whole late
-  // game (scripts/balance-sim.mjs) - the beach bars are milestones, not a jump.
-  { id: 'surf', name: 'Surf Bar', mult: 115, rebirths: 10, world: 1 },
-  { id: 'tsunami', name: 'Tsunami Bar', mult: 130, rebirths: 16, world: 1 },
+  { id: 'starter', name: 'Little League Cage', mult: 1, rebirths: 0 },
+  { id: 'speed', name: 'Sandlot Cage', mult: 2, rebirths: 1 },
+  { id: 'turbo', name: 'Rookie Cage', mult: 4, rebirths: 2 },
+  { id: 'nitro', name: 'Pro Cage', mult: 10, rebirths: 4 },
+  { id: 'rocket', name: 'All-Star Cage', mult: 20, rebirths: 6 },
+  { id: 'diamond', name: 'Crystal Cage', mult: 40, product: 'padVeryOp', tag: 'VERY OP!' },
+  { id: 'galaxy', name: 'Galaxy Cage', mult: 100, product: 'padBest', tag: 'BEST OVERALL!' },
+  // Kept close to the Galaxy Cage: every Power multiplier here speeds up the whole late
+  // game (scripts/balance-sim.mjs) - the lava cages are milestones, not a jump.
+  { id: 'surf', name: 'Magma Cage', mult: 115, rebirths: 10, world: 1 },
+  { id: 'tsunami', name: 'Inferno Cage', mult: 130, rebirths: 16, world: 1 },
 ]
 
-// --- Arms (the template's tires) ---------------------------------------------------
+// --- Bats (the template's tires) ---------------------------------------------------
 
 /**
- * The arms you wear. `power` is the Health every single gain is worth before
- * multipliers (the "+1" of Noodle Arms); `cost` is in Wins; `rarity` (RARITIES) is shown
- * on its stand. Bought in order at the arm shop. They start soft and rubbery - noodle,
- * gummy, jelly - turn to stone, bamboo, robot and metal, then frost, magma and gems, and
- * end as nebula, dragon, cosmic and infinity arms. About x2.6 power for x2.8-x3.3 the
- * Wins each. The ids are the template's (saves and the server key on them).
+ * The bats you swing. `power` is the Power every single gain is worth before
+ * multipliers (the "+1" of the Wooden Bat); `cost` is in Wins; `rarity` (RARITIES) is
+ * shown on its stand. Bought in order at the bat shop. They start as wood and bamboo, turn
+ * to stone and bone, then copper, steel and metal, ice, gold and lava, gems, and end as
+ * galaxy, dragon, cyber and infinity bats - every one a different shape
+ * (client/src/game/bats.js). About x2.6 power for x2.8-x3.3 the Wins each. The ids are
+ * the template's (saves and the server key on them).
  */
 export const TIRES = [
-  { id: 'bicycle', name: 'Noodle Arms', power: 1, cost: 0, rarity: 'common' },
-  // Cheap enough to buy with the Wins from your very first launch.
-  { id: 'mountain', name: 'Rubber Band Arms', power: 3, cost: 1, rarity: 'common' },
-  { id: 'wood', name: 'Gummy Arms', power: 5, cost: 15, rarity: 'common' },
-  { id: 'stone', name: 'Bubblegum Arms', power: 12, cost: 75, rarity: 'uncommon' },
-  { id: 'cookie', name: 'Jelly Arms', power: 30, cost: 300, rarity: 'uncommon' },
-  { id: 'pizza', name: 'Stone Arms', power: 75, cost: 1200, rarity: 'rare' },
-  { id: 'donut', name: 'Bamboo Arms', power: 200, cost: 4500, rarity: 'rare' },
-  { id: 'watermelon', name: 'Octopus Arms', power: 500, cost: 16000, rarity: 'rare' },
-  { id: 'monster', name: 'Robot Arms', power: 1250, cost: 55000, rarity: 'epic' },
-  { id: 'mint', name: 'Zebra Arms', power: 3500, cost: 180000, rarity: 'epic' },
-  { id: 'silver', name: 'Chrome Arms', power: 9000, cost: 600000, rarity: 'epic' },
-  { id: 'ice', name: 'Frost Arms', power: 23000, cost: 2e6, rarity: 'epic' },
-  { id: 'gold', name: 'Gilded Arms', power: 60000, cost: 6e6, rarity: 'legendary' },
-  { id: 'lava', name: 'Magma Arms', power: 155000, cost: 17e6, rarity: 'legendary' },
-  { id: 'platinum', name: 'Thunder Arms', power: 400000, cost: 48e6, rarity: 'legendary' },
-  { id: 'emerald', name: 'Emerald Arms', power: 1.05e6, cost: 135e6, rarity: 'legendary' },
-  { id: 'ruby', name: 'Ruby Arms', power: 2.7e6, cost: 380e6, rarity: 'mythic' },
-  { id: 'diamond', name: 'Diamond Arms', power: 7e6, cost: 1.05e9, rarity: 'mythic' },
-  { id: 'rainbow', name: 'Spectrum Arms', power: 1.8e7, cost: 3e9, rarity: 'mythic' },
-  { id: 'unicorn', name: 'Cotton Candy Arms', power: 4.8e7, cost: 8.5e9, rarity: 'mythic' },
-  { id: 'galaxy', name: 'Nebula Arms', power: 1.25e8, cost: 2.4e10, rarity: 'secret' },
-  { id: 'dragon', name: 'Dragon Arms', power: 3.3e8, cost: 6.8e10, rarity: 'secret' },
-  { id: 'cosmic', name: 'Cosmic Arms', power: 8.6e8, cost: 1.9e11, rarity: 'secret' },
-  { id: 'infinity', name: 'Infinity Arms', power: 2.2e9, cost: 5.4e11, rarity: 'secret' },
+  { id: 'bicycle', name: 'Wooden Bat', power: 1, cost: 0, rarity: 'common' },
+  // Cheap enough to buy with the Wins from your very first hit.
+  { id: 'mountain', name: 'Maple Bat', power: 3, cost: 1, rarity: 'common' },
+  { id: 'wood', name: 'Bamboo Bat', power: 5, cost: 15, rarity: 'common' },
+  { id: 'stone', name: 'Stone Bat', power: 12, cost: 75, rarity: 'uncommon' },
+  { id: 'cookie', name: 'Bone Bat', power: 30, cost: 300, rarity: 'uncommon' },
+  { id: 'pizza', name: 'Copper Bat', power: 75, cost: 1200, rarity: 'rare' },
+  { id: 'donut', name: 'Steel Bat', power: 200, cost: 4500, rarity: 'rare' },
+  { id: 'watermelon', name: 'Metal Slugger', power: 500, cost: 16000, rarity: 'rare' },
+  { id: 'monster', name: 'Spiked Bat', power: 1250, cost: 55000, rarity: 'epic' },
+  { id: 'mint', name: 'Candy Bat', power: 3500, cost: 180000, rarity: 'epic' },
+  { id: 'silver', name: 'Chrome Bat', power: 9000, cost: 600000, rarity: 'epic' },
+  { id: 'ice', name: 'Ice Bat', power: 23000, cost: 2e6, rarity: 'epic' },
+  { id: 'gold', name: 'Golden Bat', power: 60000, cost: 6e6, rarity: 'legendary' },
+  { id: 'lava', name: 'Lava Bat', power: 155000, cost: 17e6, rarity: 'legendary' },
+  { id: 'platinum', name: 'Thunder Bat', power: 400000, cost: 48e6, rarity: 'legendary' },
+  { id: 'emerald', name: 'Emerald Bat', power: 1.05e6, cost: 135e6, rarity: 'legendary' },
+  { id: 'ruby', name: 'Ruby Bat', power: 2.7e6, cost: 380e6, rarity: 'mythic' },
+  { id: 'diamond', name: 'Diamond Bat', power: 7e6, cost: 1.05e9, rarity: 'mythic' },
+  { id: 'rainbow', name: 'Rainbow Bat', power: 1.8e7, cost: 3e9, rarity: 'mythic' },
+  { id: 'unicorn', name: 'Unicorn Bat', power: 4.8e7, cost: 8.5e9, rarity: 'mythic' },
+  { id: 'galaxy', name: 'Galaxy Bat', power: 1.25e8, cost: 2.4e10, rarity: 'secret' },
+  { id: 'dragon', name: 'Dragon Bat', power: 3.3e8, cost: 6.8e10, rarity: 'secret' },
+  { id: 'cosmic', name: 'Cyber Bat', power: 8.6e8, cost: 1.9e11, rarity: 'secret' },
+  { id: 'infinity', name: 'Infinity Bat', power: 2.2e9, cost: 5.4e11, rarity: 'secret' },
 ]
 
-// --- Launching (the template's rolls) ----------------------------------------------
+// --- Balls ---------------------------------------------------------------------------
 
 /**
- * How far a launch flings you (in metres): 0 Power still sends you ROLL_BASE metres, and each stage's start
+ * The balls you hit, bought one by one in the BALL SHOP (and equipped from it). Each
+ * flies further (`reach`: times the distance your Power alone would send it) and pays
+ * more (`wins`: times every hit's Wins) than the last, and leaves its own trail: the Fire
+ * Ball spits flames all the way down the field. `bounce` is how many times it bounces
+ * after it first lands. `cost` is in Wins; the first one is the one you start with. How
+ * each looks and burns is client/src/game/balls.js.
+ */
+export const BALLS = [
+  { id: 'baseball', name: 'Baseball', reach: 1, wins: 1, bounce: 3, cost: 0, rarity: 'common' },
+  { id: 'leather', name: 'Leather Ball', reach: 1.04, wins: 1.1, bounce: 3, cost: 40, rarity: 'common' },
+  { id: 'bouncy', name: 'Bouncy Ball', reach: 1.08, wins: 1.2, bounce: 6, cost: 900, rarity: 'uncommon' },
+  { id: 'fire', name: 'Fire Ball', reach: 1.12, wins: 1.35, bounce: 3, cost: 12000, rarity: 'rare' },
+  { id: 'ice', name: 'Ice Ball', reach: 1.16, wins: 1.5, bounce: 3, cost: 150000, rarity: 'rare' },
+  { id: 'lightning', name: 'Lightning Ball', reach: 1.2, wins: 1.65, bounce: 4, cost: 2e6, rarity: 'epic' },
+  { id: 'golden', name: 'Golden Ball', reach: 1.25, wins: 1.8, bounce: 3, cost: 25e6, rarity: 'epic' },
+  { id: 'meteor', name: 'Meteor Ball', reach: 1.3, wins: 1.95, bounce: 2, cost: 300e6, rarity: 'legendary' },
+  { id: 'plasma', name: 'Plasma Ball', reach: 1.35, wins: 2.1, bounce: 4, cost: 4e9, rarity: 'legendary' },
+  { id: 'rainbow', name: 'Rainbow Ball', reach: 1.4, wins: 2.25, bounce: 5, cost: 50e9, rarity: 'mythic' },
+  { id: 'galaxy', name: 'Galaxy Ball', reach: 1.45, wins: 2.4, bounce: 4, cost: 600e9, rarity: 'mythic' },
+  { id: 'blackhole', name: 'Black Hole Ball', reach: 1.5, wins: 2.6, bounce: 3, cost: 8e12, rarity: 'secret' },
+]
+
+// --- Hitting (the template's rolls) ------------------------------------------------
+
+/**
+ * How far a hit sends the ball (in metres): 0 Power still sends you ROLL_BASE metres, and each stage's start
  * is reached with the Power in its `wall`, less WALL_MARGIN; in between, distance
  * follows Power (in log terms) from one stage's start to the next. So the stages'
  * `wall` Power sets the pace. Nothing on the runway stops you: there are no gates.
@@ -170,7 +198,7 @@ export const ROLL_H0 = 50
 export const WALL_MARGIN = 1.3
 
 /**
- * The runway's sixty stages: stretches of distance, each a little longer than the one
+ * The field's sixty stages: stretches of distance, each a little longer than the one
  * before (100 m, 106 m, 112 m ... about 450 m), with no gates between them - just a new
  * name and sky. `theme` picks the sky (one of twenty). `wall` = the Power that paces how
  * far a launch flies (see ROLL_BASE); each about twice the last. `winsPerMeter` pays for
@@ -242,42 +270,49 @@ export const ZONES = [
   { id: 'beyond', name: 'The Beyond', theme: 'cosmic', start: 15818, wall: 3.5e20, winsPerMeter: 1.7e7, smash: 4.6e9, discover: 1.2e10 },
 ]
 
-/** Wins pickups down the runway: first at 40 m, then every 80 m. */
+/** Wins pickups down the field: first at 40 m, then every 80 m. */
 export const TROPHY_FIRST = 40
 export const TROPHY_SPACING = 80
 /** A trophy is worth this many metres of its zone's Wins (at least 1). */
 export const TROPHY_METERS = 80
 
 /**
- * Seconds from letting go of the stretched arms to flying past the launch posts: the
- * rubber snapping back and slinging you forward. (The pull-back before it is yours: you
- * hold for as long as you like, and the server only hears about the release.)
+ * Seconds from your swing to the bat meeting the ball: the swing itself. (The toss before
+ * it is yours to time: the server only hears about the swing.)
  */
 export const ROLL_LAUNCH = 0.55
 /**
- * Seconds a launch of `distance` metres takes, the snap included. Logarithmic: long
- * flights stay short.
+ * Seconds a hit of `distance` metres takes, the swing included: the flight, its bounces
+ * and the roll to a stop. Logarithmic: long hits stay short.
  */
 export const rollDuration = (distance) => ROLL_LAUNCH + 3 + 2.2 * Math.log(1 + distance / 60)
-/** The result popup after you land, before you're back at the launch pad. */
+/** The result popup once the ball stops, before you're back at the plate. */
 export const ROLL_RECOVERY = 2.2
 
 /**
- * The stretch meter. Walk up to the launch posts and press LAUNCH: you grab them. Then
- * walk BACK (joystick / S) and your arms stretch like rubber - the meter is how far back
- * you've got, out of as far as your arms reach. At full stretch the rubber twangs: the
- * meter bounces off the top and back, again and again (TWANG_PERIOD a bounce, dipping
- * TWANG_DEPTH). Press LET GO and you fly out between the posts. `accuracy` is how full the
- * meter was when you let go: 1 at the very top of a twang. The grade it lands in decides
- * the launch, each grade clearly apart from the next: how far you fly (`reach`, a share of
- * what your Power alone would send you - half the distance for a WEAK one, half as far
- * again for a PERFECT one) and how many Wins it pays (`bonus`). Auto Launch skips the
- * meter: a plain x1 launch, between GOOD and GREAT.
+ * The swing meter. Step into a batting station's batter's box, press HIT and toss the
+ * ball up: as it falls (in slow motion) the meter fills, peaks the moment it reaches the
+ * bat over the plate, then drains again (SWING_WINDOW - see swingMeterAt). Press SWING: `accuracy` is
+ * how full the meter was, 1 bang on time. The grade it lands in decides the hit, each
+ * grade clearly apart from the next: how far the ball flies (`reach`, a share of what
+ * your Power alone would send it - half the distance for a WEAK one, half as far again
+ * for a PERFECT one) and how many Wins it pays (`bonus`). Auto Swing skips the meter: a
+ * plain x1 hit, between GOOD and GREAT.
  *
  * Wins are the Power's worth times `bonus` - not paid by the metres the grade adds: late
  * in the game each stage pays ~1.4 times the last, so paying for half as far again would
- * multiply a PERFECT launch's Wins dozens of times over (logic.applyRoll).
+ * multiply a PERFECT hit's Wins dozens of times over (logic.applyRoll).
  */
+/** The template's pitch time (the toss's own timing is client/src/game/launch.js). */
+export const PITCH_TIME = 1.1
+/**
+ * Seconds either side of the ball crossing the plate that the meter is above empty. The
+ * PERFECT band is the top 12% of it: ~0.08 s either side - a real test of timing, still
+ * fair on a phone.
+ */
+export const SWING_WINDOW = 0.65
+/** The meter (0-1) at `seconds` from the ball crossing the plate (negative: still coming). */
+export const swingMeterAt = (seconds) => Math.max(0, 1 - Math.abs(seconds) / SWING_WINDOW)
 /**
  * Seconds per twang at full stretch, and how far down the meter each one dips. The
  * bounce is sharp at the top (|sin|), so the PERFECT moment is ~0.1 s each time: a real
@@ -297,15 +332,15 @@ export const HIT_GRADES = [
   { id: 'perfect', min: 0.88, reach: [1.4, 1.5], bonus: 1.6, label: 'PERFECT!' },
   { id: 'great', min: 0.7, reach: [1.1, 1.2], bonus: 1.25, label: 'GREAT!' },
   { id: 'good', min: 0.4, reach: [0.8, 0.9], bonus: 1, label: 'GOOD' },
-  { id: 'weak', min: 0, reach: [0.5, 0.6], bonus: 0.75, label: 'TOO LOOSE...' },
+  { id: 'weak', min: 0, reach: [0.5, 0.6], bonus: 0.75, label: 'WEAK HIT...' },
 ]
 const clampAccuracy = (accuracy) => Math.min(1, Math.max(0, accuracy))
 /** The grade for a meter `accuracy` (0-1), or null for a launch without the meter. */
 export const hitGrade = (accuracy) => (Number.isFinite(accuracy) ? HIT_GRADES.find((g) => clampAccuracy(accuracy) >= g.min) : null)
 /**
- * How far a launch at meter `accuracy` flings you, as a share of what your Power alone
- * would: 0.5 barely pulled, 1.5 at the top of a twang, in a clear step per grade; 1 for a
- * launch without the meter.
+ * How far a hit at meter `accuracy` sends the ball, as a share of what your Power alone
+ * would: 0.5 badly mistimed, 1.5 bang on time, in a clear step per grade; 1 for a hit
+ * without the meter.
  */
 export function hitReach(accuracy) {
   const grade = hitGrade(accuracy)
@@ -352,18 +387,19 @@ export const PETS = {
   dragon: { name: 'Dragon', rarity: 'epic', mult: 2.5 },
   crab: { name: 'Lucky Crab', rarity: 'uncommon', mult: 1.2 },
   sphinx: { name: 'Sphinx', rarity: 'secret', mult: 80 },
-  // Palm Beach's Beach Egg: the Kraken is the best pet in the game, but only just - the
-  // best three pets set the late game's pace (scripts/balance-sim.mjs).
-  seagull: { name: 'Seagull', rarity: 'rare', mult: 16 },
-  dolphin: { name: 'Dolphin', rarity: 'epic', mult: 22 },
-  shark: { name: 'Shark', rarity: 'legendary', mult: 32 },
-  kraken: { name: 'Kraken', rarity: 'mythic', mult: 55 },
+  // Lava Land's Lava Egg: the Inferno Kraken is the best pet in the game, but only just -
+  // the best three pets set the late game's pace (scripts/balance-sim.mjs). (The ids are
+  // the template's beach pets; the names and colours are Lava Land's.)
+  seagull: { name: 'Fire Hawk', rarity: 'rare', mult: 16 },
+  dolphin: { name: 'Magma Dolphin', rarity: 'epic', mult: 22 },
+  shark: { name: 'Lava Shark', rarity: 'legendary', mult: 32 },
+  kraken: { name: 'Inferno Kraken', rarity: 'mythic', mult: 55 },
 }
 
 /**
- * Eggs, bought with Wins. `world` = the only world it hatches in (the Beach Egg: Palm
- * Beach). `pets` are [petId, weight] - weights are percentages and
- * sum to 100. Each egg is priced at about the Wins of a few launches at the stage of the
+ * Eggs, bought with Wins. `world` = the only world it hatches in (the Lava Egg: Lava
+ * Land). `pets` are [petId, weight] - weights are percentages and
+ * sum to 100. Each egg is priced at about the Wins of a few hits at the stage of the
  * game whose pets it beats.
  */
 export const EGGS = {
@@ -372,7 +408,7 @@ export const EGGS = {
   sunset: { name: 'Sunset', cost: { wins: 750 }, pets: [['flamingo', 45], ['turtle', 30], ['owl', 20], ['phoenix', 5]] },
   unicorn: { name: 'Unicorn', cost: { wins: 6000 }, pets: [['pony', 50], ['unicorn', 35], ['pegasus', 15]] },
   volcano: { name: 'Volcano', cost: { wins: 35000 }, pets: [['salamander', 50], ['firebird', 30], ['golem', 15], ['inferno', 5]] },
-  beach: { name: 'Beach', cost: { wins: 2000000 }, world: 1, pets: [['seagull', 45], ['dolphin', 30], ['shark', 20], ['kraken', 5]] },
+  beach: { name: 'Lava', cost: { wins: 2000000 }, world: 1, pets: [['seagull', 45], ['dolphin', 30], ['shark', 20], ['kraken', 5]] },
 }
 
 export const MAX_EQUIPPED_PETS = 3
@@ -423,7 +459,7 @@ export const PLAYTIME_REWARDS = [
 /** The stand by spawn: a pet the first time, a potion on later sessions. */
 export const FREE_REWARD = { firstTime: { pet: 'crab' }, repeat: { item: 'potionHealth' } }
 
-/** Offline training: a quarter of your pad's rate, for up to 8 hours away. */
+/** Offline training: a quarter of your cage's rate, for up to 8 hours away. */
 export const OFFLINE_RATE = 0.25
 export const OFFLINE_MAX_MS = 8 * 60 * 60 * 1000
 export const OFFLINE_MIN_MS = 60 * 1000
@@ -434,11 +470,11 @@ export const OFFLINE_MIN_MS = 60 * 1000
  * open for good, both ways. Stepping through earns the badge of the same id.
  */
 export const WORLD_PORTALS = {
-  world2: { name: 'Palm Beach', wins: 1000000, rebirths: 8 },
+  world2: { name: 'Lava Land', wins: 1000000, rebirths: 8 },
 }
 
 /**
- * Palm Beach's Secret Star, hidden somewhere in its lobby (STAR in world.js): finding it
+ * Lava Land's Secret Star, hidden somewhere in its lobby (STAR in world.js): finding it
  * doubles every Power gain for good, in every world.
  */
 export const SECRET_STAR = { world: 1, power: 2 }
@@ -446,81 +482,81 @@ export const SECRET_STAR = { world: 1, power: 2 }
 // --- Worlds -----------------------------------------------------------------------
 
 /**
- * Palm Beach (World 2), through the portal once you've rebirthed 8 times and hold 1M
- * Wins: a launch park on the beach. Its own Beach Egg, two beach bars and a Secret Star,
- * and its own runway - the same stages, one for one, as beach spots - where every metre,
- * trophy and first-visit prize pays `wins` times as much. Its gates
- * need the same Health as World 1's - a harder World 2 would pay less than World 1 right
- * after each rebirth - so going over is always worth it, and coming back (the same
- * portal) costs nothing.
+ * Lava Land (World 2), through the portal once you've rebirthed 8 times and hold 1M
+ * Wins: a ballpark on a volcano, by a sea of lava. Its own Lava Egg, two lava cages and a
+ * Secret Star, and its own field - the same stages, one for one, as fiery spots - where
+ * every metre, trophy and first-visit prize pays `wins` times as much. Its stages need
+ * the same Power as World 1's - a harder World 2 would pay less than World 1 right after
+ * each rebirth - so going over is always worth it, and coming back (the same portal)
+ * costs nothing.
  */
 export const WORLDS = [
-  { id: 'world1', name: 'Stretch Park', wins: 1 },
-  { id: 'world2', name: 'Palm Beach', wins: 3 },
+  { id: 'world1', name: 'Sunny Ballpark', wins: 1 },
+  { id: 'world2', name: 'Lava Land', wins: 3 },
 ]
 
-/** Palm Beach's stages: [id, name, theme], one for each of World 1's. */
+/** Lava Land's stages: [id, name, theme], one for each of World 1's. */
 const WORLD2_STAGES = [
-  ['w2-sandy-shore', 'Sandy Shore', 'beach'],
-  ['w2-seashell-field', 'Seashell Field', 'beach'],
-  ['w2-palm-grove', 'Palm Grove', 'jungle'],
-  ['w2-surf-stadium', 'Surf Shack', 'ocean'],
-  ['w2-coconut-bowl', 'Coconut Bowl', 'beach'],
-  ['w2-lifeguard-tower', 'Lifeguard Tower', 'sky'],
-  ['w2-boardwalk-arena', 'Boardwalk Arena', 'beach'],
-  ['w2-sunset-pier', 'Sunset Pier', 'cherry'],
-  ['w2-tiki-stadium', 'Tiki Huts', 'jungle'],
-  ['w2-coral-bowl', 'Coral Bowl', 'ocean'],
-  ['w2-lagoon-field', 'Lagoon Field', 'ocean'],
-  ['w2-shipwreck-cove', 'Shipwreck Cove', 'swamp'],
-  ['w2-pelican-point', 'Pelican Point', 'sky'],
-  ['w2-beach-party-bowl', 'Beach Party Bowl', 'neon'],
-  ['w2-lighthouse-field', 'Lighthouse Field', 'beach'],
-  ['w2-tide-pool-arena', 'Tide Pool Arena', 'ocean'],
-  ['w2-sandcastle-stadium', 'Sandcastle Hill', 'desert'],
-  ['w2-volcano-isle', 'Volcano Isle', 'volcano'],
-  ['w2-moonlit-bay', 'Moonlit Bay', 'moon'],
-  ['w2-starfish-bowl', 'Starfish Bowl', 'beach'],
-  ['w2-turtle-beach', 'Turtle Beach', 'beach'],
-  ['w2-mango-field', 'Mango Field', 'beach'],
-  ['w2-driftwood-arena', 'Driftwood Arena', 'jungle'],
-  ['w2-seagull-stadium', 'Seagull Rock', 'ocean'],
-  ['w2-surfboard-bowl', 'Surfboard Bowl', 'beach'],
-  ['w2-bonfire-beach', 'Bonfire Beach', 'sky'],
-  ['w2-hammock-field', 'Hammock Field', 'beach'],
-  ['w2-pirate-bay', 'Pirate Bay', 'cherry'],
-  ['w2-reef-stadium', 'Reef Point', 'jungle'],
-  ['w2-sea-breeze-bowl', 'Sea Breeze Bowl', 'ocean'],
-  ['w2-flamingo-field', 'Flamingo Field', 'ocean'],
-  ['w2-aloha-arena', 'Aloha Arena', 'swamp'],
-  ['w2-dune-stadium', 'Dune Ridge', 'sky'],
-  ['w2-rainbow-reef', 'Rainbow Reef', 'neon'],
-  ['w2-island-bowl', 'Island Bowl', 'beach'],
-  ['w2-treasure-cove', 'Treasure Cove', 'ocean'],
-  ['w2-wave-rider-field', 'Wave Rider Field', 'desert'],
-  ['w2-pearl-stadium', 'Pearl Grotto', 'volcano'],
-  ['w2-glowing-bay', 'Glowing Bay', 'moon'],
-  ['w2-coconut-cove', 'Coconut Cove', 'beach'],
-  ['w2-sunrise-shore', 'Sunrise Shore', 'beach'],
-  ['w2-dolphin-bowl', 'Dolphin Bowl', 'beach'],
-  ['w2-palm-paradise', 'Palm Paradise', 'jungle'],
-  ['w2-tropic-stadium', 'Tropic Trail', 'ocean'],
-  ['w2-crab-cove', 'Crab Cove', 'beach'],
-  ['w2-sundown-field', 'Sundown Field', 'sky'],
-  ['w2-kraken-bay', 'Kraken Bay', 'beach'],
-  ['w2-shark-fin-arena', 'Shark Fin Arena', 'cherry'],
-  ['w2-golden-sands', 'Golden Sands', 'jungle'],
-  ['w2-paradise-bowl', 'Paradise Bowl', 'ocean'],
-  ['w2-neon-boardwalk', 'Neon Boardwalk', 'ocean'],
-  ['w2-starlit-beach', 'Starlit Beach', 'swamp'],
-  ['w2-aurora-bay', 'Aurora Bay', 'sky'],
-  ['w2-marlin-stadium', 'Marlin Pier', 'neon'],
-  ['w2-mermaid-lagoon', 'Mermaid Lagoon', 'beach'],
-  ['w2-big-wave-bowl', 'Big Wave Bowl', 'ocean'],
-  ['w2-hula-field', 'Hula Field', 'desert'],
-  ['w2-ocean-kingdom', 'Ocean Kingdom', 'volcano'],
-  ['w2-galaxy-beach', 'Galaxy Beach', 'moon'],
-  ['w2-beach-champions', 'Beach Champions', 'beach'],
+  ['w2-ember-diamond', 'Ember Diamond', 'volcano'],
+  ['w2-ash-field', 'Ash Field', 'desert'],
+  ['w2-magma-meadow', 'Magma Meadow', 'volcano'],
+  ['w2-cinder-park', 'Cinder Park', 'moon'],
+  ['w2-smoke-stacks', 'Smoke Stacks', 'swamp'],
+  ['w2-lava-falls', 'Lava Falls', 'volcano'],
+  ['w2-obsidian-yard', 'Obsidian Yard', 'crystal'],
+  ['w2-scorch-desert', 'Scorch Desert', 'desert'],
+  ['w2-fire-pit', 'Fire Pit', 'volcano'],
+  ['w2-basalt-bluffs', 'Basalt Bluffs', 'moon'],
+  ['w2-sulfur-springs', 'Sulfur Springs', 'swamp'],
+  ['w2-dragon-nest', 'Dragon Nest', 'volcano'],
+  ['w2-ruby-caverns', 'Ruby Caverns', 'crystal'],
+  ['w2-neon-forge', 'Neon Forge', 'neon'],
+  ['w2-heat-wave', 'Heat Wave', 'desert'],
+  ['w2-phoenix-peak', 'Phoenix Peak', 'volcano'],
+  ['w2-ember-moon', 'Ember Moon', 'moon'],
+  ['w2-burning-sky', 'Burning Sky', 'aurora'],
+  ['w2-meteor-crater', 'Meteor Crater', 'space'],
+  ['w2-solar-flare', 'Solar Flare', 'cosmic'],
+  ['w2-charcoal-hills', 'Charcoal Hills', 'moon'],
+  ['w2-molten-river', 'Molten River', 'volcano'],
+  ['w2-cactus-inferno', 'Cactus Inferno', 'desert'],
+  ['w2-geyser-flats', 'Geyser Flats', 'swamp'],
+  ['w2-flame-temple', 'Flame Temple', 'volcano'],
+  ['w2-crystal-core', 'Crystal Core', 'crystal'],
+  ['w2-blaze-city', 'Blaze City', 'neon'],
+  ['w2-firefly-marsh', 'Firefly Marsh', 'swamp'],
+  ['w2-ashen-peaks', 'Ashen Peaks', 'moon'],
+  ['w2-magma-chamber', 'Magma Chamber', 'volcano'],
+  ['w2-dune-of-fire', 'Dunes of Fire', 'desert'],
+  ['w2-garnet-mines', 'Garnet Mines', 'crystal'],
+  ['w2-hot-springs', 'Hot Springs', 'swamp'],
+  ['w2-cyber-furnace', 'Cyber Furnace', 'neon'],
+  ['w2-sky-embers', 'Sky Embers', 'aurora'],
+  ['w2-red-giant', 'Red Giant', 'space'],
+  ['w2-lava-lagoon', 'Lava Lagoon', 'volcano'],
+  ['w2-scorched-moon', 'Scorched Moon', 'moon'],
+  ['w2-star-forge', 'Star Forge', 'cosmic'],
+  ['w2-inferno-gate', 'Inferno Gate', 'volcano'],
+  ['w2-sunfire-sands', 'Sunfire Sands', 'desert'],
+  ['w2-amber-grotto', 'Amber Grotto', 'crystal'],
+  ['w2-boiling-bog', 'Boiling Bog', 'swamp'],
+  ['w2-volcano-arena', 'Volcano Arena', 'volcano'],
+  ['w2-neon-lava', 'Neon Lava', 'neon'],
+  ['w2-ember-aurora', 'Ember Aurora', 'aurora'],
+  ['w2-black-rock', 'Black Rock', 'moon'],
+  ['w2-firestorm', 'Firestorm', 'volcano'],
+  ['w2-mirage', 'Mirage', 'desert'],
+  ['w2-topaz-tunnels', 'Topaz Tunnels', 'crystal'],
+  ['w2-plasma-plant', 'Plasma Plant', 'neon'],
+  ['w2-comet-fire', 'Comet Fire', 'space'],
+  ['w2-dragon-throne', 'Dragon Throne', 'volcano'],
+  ['w2-supernova', 'Supernova', 'cosmic'],
+  ['w2-lava-champions', 'Lava Champions', 'volcano'],
+  ['w2-ember-galaxy', 'Ember Galaxy', 'space'],
+  ['w2-sun-core', 'Sun Core', 'cosmic'],
+  ['w2-fire-dimension', 'Fire Dimension', 'aurora'],
+  ['w2-eternal-flame', 'Eternal Flame', 'volcano'],
+  ['w2-hall-of-fame', 'Hall of Fame', 'cosmic'],
 ]
 
 const worldZones = (world) =>
@@ -545,32 +581,32 @@ export const zonesOf = (world) => WORLD_ZONES[world] ?? ZONES
 // --- Shop -------------------------------------------------------------------------
 
 /**
- * The shop. Wins are the game's only currency: everything here, like arms and eggs,
+ * The shop. Wins are the game's only currency: everything here, like bats, balls and eggs,
  * is bought with them. `pass` = permanent unlock; `consumable` = grants every time.
  */
 export const SHOP = {
   healthX2: { name: 'x2 Power', price: 400, kind: 'pass' },
   winsX2: { name: 'x2 Wins', price: 2500, kind: 'pass' },
-  autoRoll: { name: 'Auto Launch', price: 150, kind: 'pass' },
-  padVeryOp: { name: 'VERY OP! Bar', price: 150000, kind: 'pass' },
-  padBest: { name: 'BEST OVERALL! Bar', price: 2500000, kind: 'pass' },
+  autoRoll: { name: 'Auto Swing', price: 150, kind: 'pass' },
+  padVeryOp: { name: 'VERY OP! Cage', price: 150000, kind: 'pass' },
+  padBest: { name: 'BEST OVERALL! Cage', price: 2500000, kind: 'pass' },
   sphinx: { name: 'Sphinx', price: 2500000, kind: 'consumable', grant: { pet: 'sphinx' }, stock: 1000 },
 }
 
 /**
  * Boxity Gems products, by sku. Prices live in Boxity's catalog, never here: the game
  * only names the sku and, once Boxity confirms the sale, grants what it says. Wins
- * packs grow with you: `winsRolls` max-level launches' worth of Wins.
+ * packs grow with you: `winsRolls` max-level hits' worth of Wins.
  */
 export const GEM_PRODUCTS = {
-  wins_small: { name: 'Pile of Wins', blurb: '10 max-level launches of Wins', icon: 'trophy', grant: { winsRolls: 10 } },
-  wins_big: { name: 'Mountain of Wins', blurb: '60 max-level launches of Wins', icon: 'trophy', grant: { winsRolls: 60 } },
+  wins_small: { name: 'Pile of Wins', blurb: '10 max-level hits of Wins', icon: 'trophy', grant: { winsRolls: 10 } },
+  wins_big: { name: 'Mountain of Wins', blurb: '60 max-level hits of Wins', icon: 'trophy', grant: { winsRolls: 60 } },
   potion_bundle: { name: 'Potion Bundle', blurb: '3 x2 Power + 3 x2 Wins potions', icon: 'potionHealth', grant: { items: { potionHealth: 3, potionWins: 3 } } },
   volcano_eggs: { name: '3 Volcano Eggs', blurb: 'The best pets in the game', icon: 'egg:volcano', grant: { items: { eggVolcano: 3 } } },
-  auto_roll: { name: 'Auto Launch', blurb: 'Launches you from the Launch Pad', icon: 'tire', grant: { pass: 'autoRoll' } },
+  auto_roll: { name: 'Auto Swing', blurb: 'Swings for you at home plate', icon: 'tire', grant: { pass: 'autoRoll' } },
   health_x2: { name: 'x2 Power', blurb: 'Double every Power gain, forever', icon: 'heart', grant: { pass: 'healthX2' } },
-  wins_x2: { name: 'x2 Wins', blurb: 'Double every launch’s Wins, forever', icon: 'trophy', grant: { pass: 'winsX2' } },
-  pad_best: { name: 'Galaxy Bar', blurb: 'Unlocks the x100 Galaxy pull-up bar', icon: 'portal', grant: { pass: 'padBest' } },
+  wins_x2: { name: 'x2 Wins', blurb: 'Double every hit’s Wins, forever', icon: 'trophy', grant: { pass: 'winsX2' } },
+  pad_best: { name: 'Galaxy Cage', blurb: 'Unlocks the x100 Galaxy batting cage', icon: 'portal', grant: { pass: 'padBest' } },
 }
 
 /**
@@ -587,7 +623,7 @@ export const SPHINX_STOCK_DEFAULT = 954
 
 /**
  * The three Health packs under the level bar. They grow with you: each gives `share`
- * of the Health your next level needs, for `rolls` launches' worth of Wins at that Health.
+ * of the Health your next level needs, for `rolls` hits' worth of Wins at that Health.
  * Packs aren't held back by the level cap.
  */
 export const HEALTH_PACKS = [
@@ -606,7 +642,7 @@ export const DAY_MS = 24 * 60 * 60 * 1000
 export const dayNumber = (now) => Math.floor(now / DAY_MS)
 
 /**
- * Login streak: play on consecutive days and every launch pays STREAK_STEP more Wins per
+ * Login streak: play on consecutive days and every hit pays STREAK_STEP more Wins per
  * day in a row (day 1 x1, day 2 x1.1 ... day 11 and on x2). Miss a day and it starts again
  * from day 1 - the reason to come back tomorrow.
  */
@@ -615,7 +651,7 @@ export const STREAK_MAX_DAYS = 11
 export const streakMultiplier = (days) => 1 + STREAK_STEP * (Math.min(STREAK_MAX_DAYS, Math.max(1, days)) - 1)
 
 /**
- * PERFECT combo: PERFECT launches in a row each pay COMBO_STEP more Wins than the last
+ * PERFECT combo: PERFECT hits in a row each pay COMBO_STEP more Wins than the last
  * (the 2nd +10%, the 3rd +20% ... up to +COMBO_MAX); anything less than PERFECT breaks it.
  * Kept for the session, never saved.
  */
@@ -625,14 +661,14 @@ export const comboBonus = (combo) => 1 + Math.min(COMBO_MAX, COMBO_STEP * Math.m
 
 /**
  * Playing together: every other player in your server (and your world) adds CROWD_STEP
- * to your launches' Wins, up to CROWD_MAX - bring your friends.
+ * to your hits' Wins, up to CROWD_MAX - bring your friends.
  */
 export const CROWD_STEP = 0.1
 export const CROWD_MAX = 0.3
 export const crowdBonus = (others) => 1 + Math.min(CROWD_MAX, CROWD_STEP * Math.max(0, others))
 
 /**
- * Lucky gifts: each launch has LUCKY_CHANCE of landing a surprise on top of its Wins.
+ * Lucky gifts: each hit has LUCKY_CHANCE of landing a surprise on top of its Wins.
  * `weight`s are relative. Wins gifts grow with you (`winsRolls` max-level launches' worth);
  * an egg gift is an egg that fits how far you've got (logic.eggItemFor).
  */
@@ -663,13 +699,13 @@ export const QUEST_TIERS = [
 ]
 export const QUEST_BONUS = { winsRolls: 15 }
 export const QUEST_TYPES = {
-  launch: { counter: 'launch', text: 'Launch {n} times', targets: [5, 12, 25] },
-  great: { counter: 'great', text: 'Get {n} GREAT or PERFECT launches', targets: [2, 5, 10] },
-  perfect: { counter: 'perfect', text: 'Get {n} PERFECT launches', targets: [1, 3, 6] },
+  launch: { counter: 'launch', text: 'Hit {n} balls at home plate', targets: [5, 12, 25] },
+  great: { counter: 'great', text: 'Get {n} GREAT or PERFECT hits', targets: [2, 5, 10] },
+  perfect: { counter: 'perfect', text: 'Get {n} PERFECT hits', targets: [1, 3, 6] },
   combo: { counter: 'combo', mode: 'best', text: 'Hit a PERFECT combo of {n}', targets: [2, 3, 4] },
-  reps: { counter: 'rep', text: 'Do {n} pull-ups', targets: [40, 120, 300] },
-  meters: { counter: 'meters', text: 'Fly {n} m in total', scale: 'total', targets: [4, 10, 25] },
-  far: { counter: 'far', mode: 'best', text: 'Fly {n} m in one launch', scale: 'best', targets: [0.6, 0.8, 0.95] },
+  reps: { counter: 'rep', text: 'Swing your bat {n} times', targets: [40, 120, 300] },
+  meters: { counter: 'meters', text: 'Hit {n} m in total', scale: 'total', targets: [4, 10, 25] },
+  far: { counter: 'far', mode: 'best', text: 'Hit the ball {n} m in one go', scale: 'best', targets: [0.6, 0.8, 0.95] },
   hatch: { counter: 'hatch', text: 'Hatch {n} pets', targets: [1, 3, 6] },
   minutes: { counter: 'minute', text: 'Play for {n} minutes', targets: [5, 15, 30] },
 }
@@ -677,47 +713,39 @@ export const QUEST_TYPES = {
 // --- Tutorial & badges ------------------------------------------------------------
 
 /**
- * The guide for new players: train, launch, spend the Wins on new arms, launch further,
- * rebirth. Each step completes when its event fires (and, with `health`, once you have
+ * The guide for new players: train in a cage, hit at home plate, spend the Wins on a new
+ * bat and ball, hit further, rebirth. Each step completes when its event fires (and, with `health`, once you have
  * that much); after the last the guide is done.
  */
 export const TUTORIAL = [
-  { text: 'Hang from a pull-up bar to gain Power', event: 'train', target: 'pad0', health: 30 },
-  { text: 'Walk up to the launch posts, pull BACK, then let go!', event: 'roll', target: 'roll' },
-  { text: 'Buy the Rubber Band Arms with your Wins!', event: 'buyTire', target: 'tires' },
+  { text: 'Click to swing your bat and gain Power', event: 'train', target: 'pad0', health: 12 },
+  { text: 'Step into a batting station, press HIT, then SWING as it drops!', event: 'roll', target: 'roll' },
+  { text: 'Buy the Maple Bat with your Wins!', event: 'buyTire', target: 'tires' },
+  { text: 'Buy the Leather Ball in the Ball Shop!', event: 'buyBall', target: 'balls' },
 ]
 
 export const BADGES = {
-  firstRoll: { name: 'First Fling' },
+  firstRoll: { name: 'First Hit' },
   firstRebirth: { name: 'First Rebirth' },
   firstPet: { name: 'Pet Owner' },
   firstWall: { name: 'Explorer' },
-  kilometer: { name: '1 Kilometre Club' },
-  space: { name: 'Space Flier' },
-  cosmic: { name: 'Cosmic Champion' },
-  world2: { name: 'Beach Bum' },
+  kilometer: { name: '1 Kilometre Homer' },
+  space: { name: 'Moon Shot' },
+  cosmic: { name: 'Cosmic Slugger' },
+  world2: { name: 'Lava Walker' },
   secretStar: { name: 'Star Finder' },
 }
 
-// --- Rubber arms: how far they stretch ---------------------------------------------
+// --- Template leftovers ---------------------------------------------------------------
 
 const ARM_INDEX = new Map(TIRES.map((t, i) => [t.id, i]))
 
 /**
- * How grown arms `tireId` are at `level` (0-1): a little from levelling up, mostly from
- * better arms - short at first, until, well upgraded, they hang to the floor and stretch
- * for tens of metres. `cap` is your level cap, so a rebirth's higher cap doesn't shrink them.
+ * How far up the bat line `tireId` is at `level` (0-1): a little from levelling up, mostly
+ * from better bats. (The template's rubber-arm growth; nothing in the game reads it now.)
  */
 export function armGrowth(tireId, level = 1, cap = 15) {
   const upgrade = (ARM_INDEX.get(tireId) ?? 0) / (TIRES.length - 1)
   const lvl = Math.min(1, Math.max(0, (level - 1) / Math.max(1, cap - 1)))
   return 0.08 + 0.92 * Math.min(1, upgrade * 0.7 + lvl * 0.3)
 }
-
-/**
- * The stretch bonus: every metre you walk back holding the launch posts (out of the most
- * anyone can, world MAX_PULL) flings you further and pays more - up to STRETCH_REACH more
- * distance and STRETCH_WINS more Wins at the full 50 m. Longer arms, further flights.
- */
-export const STRETCH_REACH = 0.5
-export const STRETCH_WINS = 0.5

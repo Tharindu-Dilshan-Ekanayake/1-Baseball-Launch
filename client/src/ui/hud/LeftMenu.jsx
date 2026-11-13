@@ -1,6 +1,6 @@
 import { MAX_EQUIPPED_PETS } from '@shared/balance'
 import { questsReady } from '@shared/engage'
-import { rebirthProgress } from '@shared/logic'
+import { nextBall, rebirthProgress } from '@shared/logic'
 
 import { useGame } from '../../store/game'
 import Icon from '../Icon'
@@ -16,6 +16,7 @@ const TILE_GRADIENTS = {
   items: 'linear-gradient(180deg, #ffb8c6 0%, #ff5f86 50%, #d92b5a 100%)',
   store: 'linear-gradient(180deg, #c9ff96 0%, #6fe04a 50%, #26ad3c 100%)',
   quest: 'linear-gradient(180deg, #e2c4ff 0%, #a46bff 50%, #6a2fd6 100%)',
+  ball: 'linear-gradient(180deg, #ffd0c4 0%, #ff7a5a 50%, #e03a1e 100%)',
 }
 
 function MenuTile({ icon, label, onClick, alert, top }) {
@@ -39,7 +40,8 @@ function MenuTile({ icon, label, onClick, alert, top }) {
 
 /**
  * The menu on the left, under the stats: Rebirth (with % to next), Pets, Items, Store,
- * today's Quests (a badge while one's ready to claim) and the free Gift.
+ * the Ball Shop (a badge while the next ball is affordable), today's Quests (a badge
+ * while one's ready to claim) and the free Gift.
  */
 export function LeftMenu() {
   const togglePanel = useGame((s) => s.togglePanel)
@@ -47,6 +49,10 @@ export function LeftMenu() {
   const petAlert = useGame((s) => s.profile.equippedPets.length < Math.min(MAX_EQUIPPED_PETS, s.profile.pets.length))
   const itemAlert = useGame((s) => Object.values(s.profile.items).some((n) => n > 0))
   const questAlert = useGame((s) => questsReady(s.profile, Date.now()))
+  const ballAlert = useGame((s) => {
+    const next = nextBall({ ownedBalls: s.profile.ownedBalls || ['baseball'] })
+    return Boolean(next) && s.profile.wins >= next.cost
+  })
 
   return (
     <div
@@ -63,6 +69,7 @@ export function LeftMenu() {
       <MenuTile icon="pets" label="Pets" alert={petAlert} onClick={() => togglePanel('pets')} />
       <MenuTile icon="items" label="Items" alert={itemAlert} onClick={() => togglePanel('items')} />
       <MenuTile icon="store" label="Store" alert onClick={() => togglePanel('store')} />
+      <MenuTile icon="ball" label="Balls" alert={ballAlert} onClick={() => togglePanel('balls')} />
       <MenuTile icon="quest" label="Quests" alert={questAlert} onClick={() => togglePanel('quests')} />
       <GiftTile />
     </div>

@@ -29,29 +29,33 @@ import { roll } from './rollControl'
 import { LANE_STRIPE, STAGE_LOOKS, ZONE_THEMES } from './themes'
 
 /**
- * The launch runway: a long strip down a green valley, every stage in its own colour of
- * the rainbow (red, orange, yellow, green, cyan, blue, purple, pink, round again) in a
- * checker of light and dark squares, a white line every 10 metres (a heavier one every
- * 50) with its distance painted beside it ("1,340 m"), a tall yellow distance gate every
- * 100 metres to fly over, a banner arch over the start of every stage with its name and
- * length ("Maple Lane - 106 M"), and either side grass, then blocky hills of checkered
- * dirt with trees on them, rising into cliffs. (Palm Beach keeps its stands, palms and
- * sea.) Each stage
- * brings its own sky (blended in as the ball gets there: ZONE_THEMES), its own ground
- * beyond the stands and its own skyline colours (STAGE_LOOKS), and a glowing line across
- * the pitch where it starts. No gates.
+ * The outfield the ball flies down, going on forever: mown grass in light and dark stripes
+ * (the cut checkered) in each stage's own turf - green grass, golden autumn, sand, snow,
+ * pink candy, ash, lavender crystal, glowing neon, moon dust, deep space... - a white chalk
+ * foul line down each side, a white line every 10 metres (a heavier one every 50) with its
+ * distance painted beside it ("1,340 m"), a tall distance gate every 100 metres to fly over,
+ * a banner arch over the start of every stage with its name and length ("Maple Lane -
+ * 106 M"). At the Sunny Ballpark a dirt warning track runs down both sides to a padded
+ * outfield wall with a gold cap and its distances on it, light towers stand behind it, and
+ * beyond rise hills in the stage's own look - grassy with trees, sandstone with cacti,
+ * snowy with pines, candy with lollipops, glowing lava with obsidian spikes, a neon city,
+ * crystals, clouds, moon rock...; in Lava Land, grandstands line both sides, with lava
+ * rocks, obsidian spikes and fire torches out on the ground beyond and the lava sea to the
+ * east. Each stage brings its own sky (blended in as the ball gets there: ZONE_THEMES), its
+ * own ground beyond (STAGE_LOOKS) and a glowing line across the field where it starts.
  *
  * Nothing is built per stretch of field. A fixed set of pieces - ground squares, turf
- * bands, yard lines/goalposts/towers/arches, pavilion segments with their crowds,
- * TOWER_SLOTS buildings of skyline, a pool of numerals and the banner arches' name boards -
- * is moved along to wherever you're looking (the ball in flight, the start from the lobby)
- * and recoloured for the stage it lands in. Seven draw calls, the same at 60 yd or 16 km,
- * and nothing allocated while it runs. On LOW the crowds are left out, only the pavilions
- * within sight are drawn, and the view is shorter (the preset's decorDensity and
+ * bands, the track and wall, yard lines/gates/towers/arches, grandstand segments with their
+ * crowds, hill slots, a pool of numerals and the banner arches' name boards - is moved
+ * along to wherever you're looking (the ball in flight, the start from the lobby) and
+ * recoloured for the stage it lands in. Seven draw calls, the same at 60 m or 16 km, and
+ * nothing allocated while it runs. On LOW the crowds are left out, only the grandstand
+ * segments within sight are drawn, and the view is shorter (the preset's decorDensity and
  * viewDistance).
  *
- * Layers that lie on each other are always at least 3 cm apart (turf 0.04, lines 0.05-0.09,
- * stage lines 0.14, everything standing on the turf from 0.04), so nothing z-fights.
+ * Layers that lie on each other are always at least 3 cm apart (turf 0.04, track 0.08,
+ * lines 0.05-0.1, stage lines 0.14, everything standing on the turf from 0.04), so nothing
+ * z-fights.
  */
 
 const STRIPE = LANE_STRIPE
@@ -66,16 +70,27 @@ const FIELD_LENGTH = STRIPES * STRIPE
 /** The ground is laid in squares this long, each in its stage's look. */
 const SEGMENT = 8
 const SEGMENTS = FIELD_LENGTH / SEGMENT
-/** Ground boxes: the squares, the pitch's two sidelines, the rails along the boards, then the stage lines. */
+/**
+ * Ground boxes: the squares, the two foul lines, the rails along the grandstands' boards,
+ * the stage lines, then the warning tracks, the outfield walls and their caps.
+ */
 const EDGE = SEGMENTS
 const CAP = SEGMENTS + 2
 const STAGE_LINE = SEGMENTS + 4
 const STAGE_LINES = 7
+const TRACK = STAGE_LINE + STAGE_LINES
+const WALL = TRACK + 2
+const WALL_CAP = WALL + 2
 /** The top of the turf; everything standing on it starts here. */
 const TURF_TOP = 0.04
-/** The LED boards stand here, along the pitch; the turf runs out to SIDE_TURF_X either side. */
+/** The grandstands' LED boards stand here (Lava Land); the turf runs out to SIDE_TURF_X either side. */
 const WALL_X = LANE_WIDTH / 2 + 1.2
 const SIDE_TURF_X = 44
+/** The Sunny Ballpark's outfield wall: its inner face this far out, this tall; the warning track in front. */
+const OF_WALL_X = 13
+const OF_WALL_HEIGHT = 2.6
+const TRACK_FROM = LANE_WIDTH / 2 + 0.75
+const TRACK_TO = OF_WALL_X - 0.05
 
 /** Skyline: one building every CITY_EVERY yards, alternating sides, beyond the stands. */
 const CITY_EVERY = 10
@@ -94,13 +109,13 @@ function colorOf(hex) {
 }
 const lookAt = (meter) => STAGE_LOOKS[zones()[zoneIndexAt(meter)].theme] ?? STAGE_LOOKS.grassy
 
-/** Each stage's runway colour, round the rainbow: [light, dark] squares of it. */
-const RAINBOW = ['#ff5a5a', '#ff9a2e', '#ffd93a', '#5fdc4a', '#3fd6e8', '#4f86ff', '#a465ff', '#ff6bd0']
-const RUNWAY = RAINBOW.map((hex) => [new Color(hex).lerp(new Color('#ffffff'), 0.12), new Color(hex).multiplyScalar(0.86)])
-const runwayAt = (meter, k) => RUNWAY[zoneIndexAt(meter) % RUNWAY.length][k % 2]
-
-/** World 1's valley: grass beside the runway and under the hills, and the hills' dirt. */
-const VALLEY = { grass: ['#45c43c', '#3db535'], ground: '#3aa834', dirt: ['#ff8aa8', '#c08cff'], leaves: ['#ff6fae', '#ffd21f'], trunk: '#ffffff' }
+/** Materials STYLE ids by name (STAGE_LOOKS names them). */
+const styleId = (name) => STYLE[name] ?? STYLE.STUDS
+/** Each stage look's turf beside the outfield: its two shades, a touch darker. */
+const SIDE_TURF = Object.fromEntries(
+  Object.entries(STAGE_LOOKS).map(([id, look]) => [id, look.turf.map((hex) => new Color(hex).multiplyScalar(0.84))]),
+)
+const sideTurfAt = (meter, k) => (SIDE_TURF[zones()[zoneIndexAt(meter)].theme] ?? SIDE_TURF.grassy)[k % 2]
 /** Each stage's sky, parsed once per world. */
 const stageSkies = perWorld((zs) => zs.map((z) => skyLook(ZONE_THEMES[z.theme]?.sky ?? ZONE_THEMES.grassy.sky)))
 /** A stable pseudo-random 0-1 for piece `k` (and a salt): the same on every client. */
@@ -135,6 +150,8 @@ const BANNER = { width: 14, height: 3.5, y: 7.4 }
 const YELLOW = '#ffd21f'
 const WHITE = '#f4f7fb'
 const NAVY = TEAM.navy
+/** The light towers along the outfield: behind the wall at the ballpark, behind the stands in Lava Land. */
+const TOWER_X = { park: OF_WALL_X + 3.6, lava: 27 }
 
 /** Every mark's colour and style by its role, in slot order (placed and re-placed in placeMarks). */
 function createMarks() {
@@ -186,7 +203,7 @@ const CROWD_PER_SIDE = ROWS * 2 * FANS
 const CROWD_PER_SLOT = CROWD_PER_SIDE * 2
 const STAND_INSTANCES = STAND_SLOTS * (MAIN + CROWD_PER_SLOT)
 const CONCRETE = PALETTE.concrete
-/** The venue of the world being shown (sceneStyle VENUES): its colours, and whether it's the beach. */
+/** The venue of the world being shown (sceneStyle VENUES): its colours, and whether it's Lava Land. */
 const venue = () => venueOf(activeWorld())
 
 function createStands() {
@@ -286,7 +303,11 @@ function placeStand(mesh, k, slot, sparse) {
 
 /** Distances painted beside every line: "1,340 m". */
 const MARK_EVERY = YARD_EVERY
-const MAX_GLYPHS = 340
+const MAX_GLYPHS = 440
+/** Distances on the outfield wall (the ballpark's), every this many metres; glyphs kept for them. */
+const WALL_MARK_EVERY = 50
+const WALL_GLYPHS = 100
+const WALL_GLYPH = { w: 1.05, h: 1.6, advance: 0.95, y: 1.35 }
 /** Glyph cells in the atlas, and their size on the runway (metres). */
 const CHARS = '0123456789,m'
 const COMMA = 10
@@ -298,6 +319,8 @@ const FONT = '"Fredoka One", "Arial Rounded MT Bold", sans-serif'
 
 /** Glyphs lie flat on the slope, upright as read from behind (looking down the field). */
 const FLAT = new Quaternion().setFromEuler(new Euler(-Math.PI / 2 + SLOPE_EULER_X, 0, 0))
+/** On the walls, upright, facing the field: the west wall's turned to face east, the east wall's west. */
+const ON_WALL = [new Quaternion().setFromEuler(new Euler(0, Math.PI / 2, 0)), new Quaternion().setFromEuler(new Euler(0, -Math.PI / 2, 0))]
 const _m = new Matrix4()
 const _p = new Vector3()
 const _s = new Vector3()
@@ -503,13 +526,19 @@ function redrawBanners(mesh) {
   texture.needsUpdate = true
 }
 
-/** The ground's squares, the pitch's sidelines, the rails along the boards, and the stage lines. */
+/**
+ * The ground's squares, the foul lines, the rails along the boards, the stage lines, and
+ * the warning tracks, outfield walls and their caps.
+ */
 function createField() {
   const set = new BlockSet()
-  for (let i = 0; i < SEGMENTS; i += 1) set.add(0, 0, 0, 1, 1, 1, PALETTE.asphalt, STYLE.ROAD)
+  for (let i = 0; i < SEGMENTS; i += 1) set.add(0, 0, 0, 1, 1, 1, PALETTE.asphalt, STYLE.STUDS)
   for (let i = 0; i < 2; i += 1) set.add(0, 0, 0, 1, 1, 1, '#ffffff', STYLE.GLOW)
   for (let i = 0; i < 2; i += 1) set.add(0, 0, 0, 1, 1, 1, TEAM.gold, STYLE.GLOW)
   for (let i = 0; i < STAGE_LINES; i += 1) set.add(0, 0, 0, 1, 1, 1, '#ffffff', STYLE.GLOW)
+  for (let i = 0; i < 2; i += 1) set.add(0, 0, 0, 1, 1, 1, '#b97a4a', STYLE.ROAD)
+  for (let i = 0; i < 2; i += 1) set.add(0, 0, 0, 1, 1, 1, '#1f6b3a', STYLE.STUDS)
+  for (let i = 0; i < 2; i += 1) set.add(0, 0, 0, 1, 1, 1, TEAM.gold, STYLE.GLOW)
   const mesh = set.build(sharedMaterials().blocks)
   mesh.frustumCulled = false
   return mesh
@@ -525,77 +554,168 @@ function createCity() {
 }
 
 /**
- * World 1's piece `k` in a skyline slot instead of a building: a blocky hill of
- * checkered dirt with a grass cap (STYLE.HILL) - a big terrace and a higher one stepped
- * up on it behind - and a tree (trunk and leaf cube, now and then pink blossom) on its
- * front terrace, at a random distance beyond the grass, the same on every client.
- * Alternating sides, so the runway runs down a valley between them. Four boxes each.
+ * The Sunny Ballpark's piece `k` in a skyline slot: a blocky hill in the look of the stage
+ * it stands in (STAGE_LOOKS `hill`: grass-capped earth, sandstone, snow, candy, lava, a neon
+ * tower block, crystal, clouds, moon rock...) - a big terrace and a higher one stepped up on
+ * it behind - and on its front terrace the stage's decor: a tree, a pine, a palm, a cactus,
+ * a lollipop, a giant mushroom, crystals, coral, a neon sign, a cloud, a boulder, an
+ * obsidian spike... at a random distance beyond the wall, the same on every client.
+ * Alternating sides, so the outfield runs down a valley between them. Four boxes each.
  */
 function placeHill(mesh, styles, k, sparse) {
   const slot = (k % CITY_SLOTS) * PARTS
   const metre = k * CITY_EVERY + CITY_EVERY / 2
   const side = k % 2 ? 1 : -1
   const skip = metre < 60 || (sparse && k % 4 >= 2)
+  const look = lookAt(metre).hill
   const w = 16 + Math.floor(hash(k, 2) * 4) * 4
   const d = 16 + Math.floor(hash(k, 4) * 3) * 4
   const h = 8 + Math.floor(hash(k, 3) * 4) * 4
   const x = side * (LANE_WIDTH / 2 + 8 + w / 2 + hash(k, 1) * 24)
   const back = side * (w * 0.3)
-  const pink = hash(k, 6) > 0.8
   const tx = x - side * (w / 2 - 3)
+  const style = styleId(look.style)
   const parts = [
-    // [x, y centre, z, width, height, depth, colour, style]
-    [x, h / 2, 0, w, h, d, VALLEY.dirt[k % 2], STYLE.MESA],
-    [x + back, h + h * 0.4, 0, w * 0.6, h * 0.8, d * 0.75, VALLEY.dirt[(k + 1) % 2], STYLE.MESA],
-    [tx, h + 1.4, 0, 0.9, 2.8, 0.9, VALLEY.trunk, STYLE.SMOOTH],
-    [tx, h + 3.9, 0, 3.6, 2.4, 3.6, VALLEY.leaves[pink ? 1 : 0], STYLE.STUDS],
+    // [x, y centre, z, width, height, depth, colour, style, turn]
+    [x, h / 2, 0, w, h, d, look.dirt[k % 2], style, 0],
+    [x + back, h + h * 0.4, 0, w * 0.6, h * 0.8, d * 0.75, look.dirt[(k + 1) % 2], style, 0],
+    ...decorParts(look, tx, h, k),
   ]
   for (let i = 0; i < PARTS; i += 1) {
     if (skip) {
       mesh.setMatrixAt(slot + i, ZERO)
       continue
     }
-    const [px, py, pz, sx, sy, sz, c, style] = parts[i]
+    const [px, py, pz, sx, sy, sz, c, st, turn] = parts[i]
     trackPoint(metre + pz, px, py, _p)
-    mesh.setMatrixAt(slot + i, _m.compose(_p, _white.identity(), _s.set(sx, sy, sz)))
+    mesh.setMatrixAt(slot + i, _m.compose(_p, turn ? _white.setFromAxisAngle(_up, turn) : _white.identity(), _s.set(sx, sy, sz)))
     mesh.setColorAt(slot + i, colorOf(c))
-    styles[slot + i] = style
+    styles[slot + i] = st
   }
 }
 
-const BEACH = { sand: ['#f0d9a0', '#e8cf92'], trunk: '#9a6a3a', leaves: ['#2fae4a', '#4cd36a'], coconut: '#6a4424', canopy: ['#ff6f61', '#16b8c4', '#ffd27a'] }
-/** At Palm Beach the ground stops here on the east (the sea runs on beyond: Ocean.jsx). */
+/** Reused for decorParts' two boxes: [x, y, z, sx, sy, sz, colour, style, turn] each. */
+const _decor = [
+  [0, 0, 0, 0, 0, 0, '#ffffff', 0, 0],
+  [0, 0, 0, 0, 0, 0, '#ffffff', 0, 0],
+]
+function decor(i, x, y, sx, sy, sz, color, style, turn = 0) {
+  const d = _decor[i]
+  d[0] = x
+  d[1] = y
+  d[2] = 0
+  d[3] = sx
+  d[4] = sy
+  d[5] = sz
+  d[6] = color
+  d[7] = style
+  d[8] = turn
+}
+
+/** The two boxes of a hill's decor (STAGE_LOOKS hill `decor`), standing on its top `h` at x. */
+function decorParts(look, x, h, k) {
+  const turn = hash(k, 7) * Math.PI
+  switch (look.decor) {
+    case 'pine':
+      decor(0, x, h + 1.0, 0.7, 2.0, 0.7, look.trunk, STYLE.SMOOTH)
+      decor(1, x, h + 3.6, 3.2, 3.6, 3.2, look.leaves, STYLE.STUDS, Math.PI / 4)
+      break
+    case 'palm':
+      decor(0, x, h + 3.5, 0.7, 7, 0.7, look.trunk, STYLE.SMOOTH)
+      decor(1, x, h + 7.1, 5, 0.4, 5, look.leaves, STYLE.STUDS, turn)
+      break
+    case 'cactus':
+      decor(0, x, h + 2.2, 1.1, 4.4, 1.1, look.leaves, STYLE.STRIPES)
+      decor(1, x, h + 2.6, 2.8, 0.8, 0.8, look.leaves, STYLE.STUDS, turn)
+      break
+    case 'lollipop':
+      decor(0, x, h + 2, 0.35, 4, 0.35, look.trunk, STYLE.SMOOTH)
+      decor(1, x, h + 5.4, 3, 3, 0.7, look.leaves, STYLE.STRIPES, turn)
+      break
+    case 'mushroom':
+      decor(0, x, h + 1.3, 1.3, 2.6, 1.3, look.trunk, STYLE.SMOOTH)
+      decor(1, x, h + 3.3, 4.6, 1.4, 4.6, look.leaves, STYLE.STUDS, turn)
+      break
+    case 'crystal':
+      decor(0, x, h + 2.6, 1.3, 5.2, 1.3, look.leaves, STYLE.GLOW, turn)
+      decor(1, x + 1.4, h + 1.4, 0.9, 2.8, 0.9, look.trunk, STYLE.GLOW, turn + 0.6)
+      break
+    case 'coral':
+      decor(0, x, h + 1.8, 0.8, 3.6, 0.8, look.leaves, STYLE.GLOW)
+      decor(1, x, h + 2.6, 2.6, 0.8, 0.8, look.trunk, STYLE.GLOW, turn)
+      break
+    case 'neon':
+      decor(0, x, h + 2.5, 0.3, 5, 0.3, look.trunk, STYLE.SMOOTH)
+      decor(1, x, h + 5.6, 3.6, 1.6, 0.4, look.leaves, STYLE.GLOW, turn)
+      break
+    case 'cloud':
+      decor(0, x, h + 1.2, 4.4, 1.8, 3.2, look.leaves, STYLE.STUDS, turn)
+      decor(1, x, h + 2.4, 2.6, 1.4, 2.2, look.leaves, STYLE.STUDS, turn + 0.5)
+      break
+    case 'rock':
+      decor(0, x, h + 1.1, 3.2, 2.2, 3, look.leaves, STYLE.STUDS, turn)
+      decor(1, x + 2.2, h + 0.6, 1.6, 1.2, 1.5, look.trunk, STYLE.STUDS, turn + 1)
+      break
+    case 'spike':
+      decor(0, x, h + 2.8, 1.2, 5.6, 1.2, look.trunk, STYLE.SMOOTH, turn)
+      decor(1, x, h + 6.0, 0.8, 1.0, 0.8, look.leaves, STYLE.GLOW, turn)
+      break
+    default:
+      decor(0, x, h + 1.4, 0.9, 2.8, 0.9, look.trunk, STYLE.SMOOTH)
+      decor(1, x, h + 3.9, 3.6, 2.4, 3.6, look.leaves, STYLE.STUDS)
+  }
+  return _decor
+}
+
+/** Lava Land's ground and pieces beyond the stands: basalt, and the lava sea east of SHORE_X. */
+const LAVA_LAND = { trunk: '#2a2020', obsidian: ['#1a1220', '#241a2c'], rock: '#ff5a14', flame: '#ff6a1e', core: '#ffd27a' }
+/** In Lava Land the ground stops here on the east (the lava sea runs on beyond: Ocean.jsx). */
 const SHORE_X = 50
 
 /**
- * Palm Beach's piece `k` in a skyline slot instead of a building: on the west, palms and
- * beach umbrellas (with a deck chair) scattered over the sand; on the east, a row of palms
- * along the shore between the turf and the sea. Four boxes each, like a building; the
- * leaves and canopies are stacked 4-5 cm apart.
+ * Lava Land's piece `k` in a skyline slot: on the west, obsidian spikes, dead trees with
+ * bare branches, glowing lava rocks and fire torches scattered over the basalt; on the
+ * east, a row of lava rocks and torches along the shore of the lava sea. Four boxes each,
+ * the same on every client.
  */
-function placeBeachPiece(mesh, styles, k, sparse) {
+function placeLavaPiece(mesh, styles, k, sparse) {
   const slot = (k % CITY_SLOTS) * PARTS
   const metre = k * CITY_EVERY + CITY_EVERY / 2
   const side = k % 2 ? 1 : -1
   const skip = metre < 70 || (sparse && k % 4 >= 2)
-  const umbrella = side < 0 && k % 3 === 0
+  const kind = side > 0 ? (k % 3 === 0 ? 'torch' : 'rock') : ['spike', 'tree', 'rock', 'torch'][k % 4]
   const x = side > 0 ? SIDE_TURF_X + 2 + hash(k, 1) * 3 : -(SIDE_TURF_X + 3 + hash(k, 1) * 50)
   const turn = hash(k, 3) * Math.PI
-  const h = 7 + hash(k, 2) * 5
-  const color = BEACH.canopy[k % 3]
-  const parts = umbrella
-    ? [
-        [0, 1.35, 0, 0.14, 2.7, 0.14, '#ffffff', STYLE.SMOOTH, 0],
-        [0, 2.72, 0, 2.8, 0.12, 2.8, color, STYLE.SMOOTH, turn],
-        [0, 2.88, 0, 2.0, 0.12, 2.0, '#ffffff', STYLE.SMOOTH, turn + Math.PI / 4],
-        [1.8, 0.22, 0, 0.8, 0.44, 1.6, color, STYLE.STRIPES, turn],
-      ]
-    : [
-        [0, h / 2, 0, 0.7, h, 0.7, BEACH.trunk, STYLE.SMOOTH, 0],
-        [0, h + 0.1, 0, 5, 0.18, 0.9, BEACH.leaves[0], STYLE.SMOOTH, turn],
-        [0, h + 0.15, 0, 5, 0.18, 0.9, BEACH.leaves[1], STYLE.SMOOTH, turn + Math.PI / 2],
-        [0.3, h - 0.35, 0.2, 0.6, 0.5, 0.6, BEACH.coconut, STYLE.SMOOTH, 0],
-      ]
+  const h = 4 + hash(k, 2) * 5
+  const L = LAVA_LAND
+  const parts =
+    kind === 'spike'
+      ? [
+          [0, h / 2, 0, 1.4, h, 1.4, L.obsidian[0], STYLE.SMOOTH, turn],
+          [0.6, h * 0.35, 0.4, 0.9, h * 0.7, 0.9, L.obsidian[1], STYLE.SMOOTH, turn + 0.7],
+          [0, h + 0.2, 0, 0.5, 0.6, 0.5, L.flame, STYLE.GLOW, turn],
+          [-1.2, 0.4, -0.6, 1.4, 0.8, 1.2, L.rock, STYLE.LAVA, turn],
+        ]
+      : kind === 'tree'
+        ? [
+            [0, h / 2, 0, 0.6, h, 0.6, L.trunk, STYLE.SMOOTH, 0],
+            [0.8, h * 0.75, 0, 1.8, 0.28, 0.28, L.trunk, STYLE.SMOOTH, turn],
+            [-0.7, h * 0.58, 0, 1.4, 0.24, 0.24, L.trunk, STYLE.SMOOTH, turn + 1.2],
+            [0, 0.3, 0, 1.6, 0.6, 1.6, L.rock, STYLE.LAVA, turn],
+          ]
+        : kind === 'torch'
+          ? [
+              [0, 1.6, 0, 0.35, 3.2, 0.35, L.trunk, STYLE.SMOOTH, 0],
+              [0, 3.45, 0, 0.8, 0.5, 0.8, L.trunk, STYLE.SMOOTH, turn],
+              [0, 3.95, 0, 0.6, 0.7, 0.6, L.flame, STYLE.GLOW, turn],
+              [0, 4.35, 0, 0.32, 0.5, 0.32, L.core, STYLE.GLOW, turn],
+            ]
+          : [
+              [0, 1.1, 0, 3, 2.2, 2.6, L.rock, STYLE.LAVA, turn],
+              [1.6, 0.7, 0.8, 1.6, 1.4, 1.5, L.rock, STYLE.LAVA, turn + 0.8],
+              [-0.4, 2.5, 0, 1.6, 0.8, 1.4, L.obsidian[0], STYLE.SMOOTH, turn + 0.3],
+              [-1.5, 0.4, -0.9, 1, 0.8, 1, L.obsidian[1], STYLE.SMOOTH, turn],
+            ]
   for (let i = 0; i < PARTS; i += 1) {
     if (skip) {
       mesh.setMatrixAt(slot + i, ZERO)
@@ -611,8 +731,8 @@ function placeBeachPiece(mesh, styles, k, sparse) {
 
 /**
  * The turf's bands: instance k % STRIPES is band k, light or dark by k's parity, in its
- * stage's greens - the pitch itself, then (after them) the sideline turf either side of it,
- * out past the stands, mown in the same bands.
+ * stage's turf - the outfield itself, then (after them) the turf either side of it, out
+ * past the wall (or the stands), mown in the same bands a shade darker.
  */
 function createStripes() {
   const set = new BlockSet()
@@ -663,7 +783,11 @@ function placeMarks(marks, banners, from, laid) {
     mark(marks, base + 3, m, 0, GATE_HEIGHT, POST_HALF * 2 + 0.6, 0.6, 0.6)
     mark(marks, base + 4, m, 0, GATE_HEIGHT + 0.75, 0.9, 0.9, 0.9)
   }
-  // A floodlight tower either side every 100 yards, halfway between the posts, behind the pavilions.
+  // A light tower either side every 100 metres, halfway between the gates: behind the
+  // outfield wall at the ballpark, behind the grandstands in Lava Land.
+  const lava = venue().lava
+  const towerX = lava ? TOWER_X.lava : TOWER_X.park
+  const lamp = colorOf(venue().field.lights)
   const t0 = Math.max(0, Math.ceil((from - 50) / 100))
   for (let t = t0; t < t0 + TOWER_SLOTS; t += 1) {
     const m = t * 100 + 50
@@ -674,14 +798,10 @@ function placeMarks(marks, banners, from, laid) {
         marks.setMatrixAt(base + 1, ZERO)
         continue
       }
-      if (!venue().beach) {
-        marks.setMatrixAt(base, ZERO)
-        marks.setMatrixAt(base + 1, ZERO)
-        continue
-      }
       const s = side ? 1 : -1
-      mark(marks, base, m, s * 27, TURF_TOP + 8.5, 1, 17, 1)
-      mark(marks, base + 1, m, s * 26.1, 18, 0.8, 3, 5.4)
+      mark(marks, base, m, s * towerX, TURF_TOP + 8.5, 1, 17, 1)
+      mark(marks, base + 1, m, s * (towerX - 0.9), 18, 0.8, 3, 5.4)
+      marks.setColorAt(base + 1, lamp)
     }
   }
   // A banner arch over the start of each stage in view, its name board on the front.
@@ -732,6 +852,7 @@ export default function Lane() {
     mark: -1,
     far: 0,
     world: -1,
+    markWorld: -1,
     sparse: false,
     slots: new Int32Array(CITY_SLOTS).fill(-1),
     stands: new Int32Array(STAND_SLOTS).fill(-1),
@@ -798,7 +919,7 @@ export default function Lane() {
     const laid = laidFor.current
     const band = Math.floor(Math.max(0, focus - BEHIND) / STRIPE)
     const world = activeWorld()
-    const beach = venue().beach
+    const lava = venue().lava
     const sparse = getQuality().decorDensity < 0.5
     const ring = sparse ? STAND_SLOTS_LOW : STAND_SLOTS
     if (world !== laid.world || sparse !== laid.sparse) {
@@ -809,9 +930,9 @@ export default function Lane() {
       laid.slots.fill(-1)
       laid.stands.fill(-1)
       laid.banners.fill(null)
-      // LOW draws only its ring's structure; the rest also the crowd. World 1 has hills
-      // beside the runway instead: no stands at all.
-      stands.count = !beach ? 0 : sparse ? STAND_SLOTS_LOW * MAIN : STAND_INSTANCES
+      // LOW draws only its ring's structure; the rest also the crowd. The ballpark has its
+      // wall and hills beside the outfield instead: no stands at all.
+      stands.count = !lava ? 0 : sparse ? STAND_SLOTS_LOW * MAIN : STAND_INSTANCES
     }
 
     if (band !== laid.band) {
@@ -823,24 +944,39 @@ export default function Lane() {
       const first = Math.floor(from / SEGMENT)
       for (let j = first; j < first + SEGMENTS; j += 1) {
         const slot = j % SEGMENTS
-        if (beach) {
-          // Sand out to the shore on the east (the sea beyond), and away west.
+        const m = j * SEGMENT + SEGMENT / 2
+        const look = lookAt(m)
+        if (lava) {
+          // Out to the shore on the east (the lava sea beyond), and away west.
           const west = -FIELD_WIDTH / 2
-          field.setMatrixAt(slot, slopeBoxMatrix(j * SEGMENT + SEGMENT / 2, (west + SHORE_X) / 2, -0.5, SHORE_X - west, 1, SEGMENT, 0, _m))
-          field.setColorAt(slot, colorOf(BEACH.sand[j % 2]))
-          fieldStyles.array[slot] = STYLE.STUDS
+          field.setMatrixAt(slot, slopeBoxMatrix(m, (west + SHORE_X) / 2, -0.5, SHORE_X - west, 1, SEGMENT, 0, _m))
         } else {
-          field.setMatrixAt(slot, slopeBoxMatrix(j * SEGMENT + SEGMENT / 2, 0, -0.5, FIELD_WIDTH, 1, SEGMENT, 0, _m))
-          field.setColorAt(slot, colorOf(VALLEY.ground))
-          fieldStyles.array[slot] = STYLE.STUDS
+          field.setMatrixAt(slot, slopeBoxMatrix(m, 0, -0.5, FIELD_WIDTH, 1, SEGMENT, 0, _m))
         }
+        field.setColorAt(slot, colorOf(look.field))
+        fieldStyles.array[slot] = styleId(look.style)
       }
+      const v = venue()
       for (let side = 0; side < 2; side += 1) {
         const s = side ? 1 : -1
         field.setMatrixAt(EDGE + side, slopeBoxMatrix(mid, s * (LANE_WIDTH / 2 + 0.35), 0.08, 0.7, 0.04, FIELD_LENGTH, 0, _m))
-        if (beach) field.setMatrixAt(CAP + side, slopeBoxMatrix(mid, s * WALL_X, TURF_TOP + 1.32, 0.7, 0.12, FIELD_LENGTH, 0, _m))
+        if (lava) field.setMatrixAt(CAP + side, slopeBoxMatrix(mid, s * WALL_X, TURF_TOP + 1.32, 0.7, 0.12, FIELD_LENGTH, 0, _m))
         else field.setMatrixAt(CAP + side, ZERO)
-        field.setColorAt(CAP + side, colorOf(venue().accent))
+        field.setColorAt(CAP + side, colorOf(v.accent))
+        // The ballpark's warning track, outfield wall and its cap (none in Lava Land: its
+        // grandstands' boards line the field instead).
+        if (lava) {
+          field.setMatrixAt(TRACK + side, ZERO)
+          field.setMatrixAt(WALL + side, ZERO)
+          field.setMatrixAt(WALL_CAP + side, ZERO)
+        } else {
+          field.setMatrixAt(TRACK + side, slopeBoxMatrix(mid, (s * (TRACK_FROM + TRACK_TO)) / 2, TURF_TOP + 0.02, TRACK_TO - TRACK_FROM, 0.04, FIELD_LENGTH, 0, _m))
+          field.setMatrixAt(WALL + side, slopeBoxMatrix(mid, s * (OF_WALL_X + 0.3), OF_WALL_HEIGHT / 2, 0.6, OF_WALL_HEIGHT, FIELD_LENGTH, 0, _m))
+          field.setMatrixAt(WALL_CAP + side, slopeBoxMatrix(mid, s * (OF_WALL_X + 0.3), OF_WALL_HEIGHT + 0.07, 0.72, 0.14, FIELD_LENGTH, 0, _m))
+          field.setColorAt(TRACK + side, colorOf(v.field.track))
+          field.setColorAt(WALL + side, colorOf(v.field.wall))
+          field.setColorAt(WALL_CAP + side, colorOf(v.field.cap))
+        }
       }
       // A glowing line across the pitch where each stage starts, in its colour.
       const stages = zones()
@@ -864,7 +1000,7 @@ export default function Lane() {
       for (let k = k0; k < k0 + CITY_SLOTS; k += 1) {
         if (laid.slots[k % CITY_SLOTS] === k) continue
         laid.slots[k % CITY_SLOTS] = k
-        if (beach) placeBeachPiece(city, cityStyles.array, k, sparse)
+        if (lava) placeLavaPiece(city, cityStyles.array, k, sparse)
         else placeHill(city, cityStyles.array, k, sparse)
         placed = true
       }
@@ -877,7 +1013,7 @@ export default function Lane() {
       // Pavilion segments likewise, round the ring the preset uses.
       const s0 = Math.floor(from / SEG_LEN)
       let stood = false
-      for (let k = s0; beach && k < s0 + ring; k += 1) {
+      for (let k = s0; lava && k < s0 + ring; k += 1) {
         if (laid.stands[k % ring] === k) continue
         laid.stands[k % ring] = k
         placeStand(stands, k, k % ring, sparse)
@@ -896,10 +1032,9 @@ export default function Lane() {
       for (let k = band; k < band + STRIPES; k += 1) {
         const m = k * STRIPE + STRIPE / 2
         stripes.setMatrixAt(k % STRIPES, slopeBoxMatrix(m, 0, TURF_TOP / 2, LANE_WIDTH, TURF_TOP, STRIPE, 0, _m))
-        // The runway in its stage's rainbow colour; the turf beside it green (World 1)
-        // or in the stage's own greens (Palm Beach).
-        stripes.setColorAt(k % STRIPES, runwayAt(m, k))
-        const turf = beach ? colorOf(lookAt(m).turf[k % 2]) : colorOf(VALLEY.grass[k % 2])
+        // The outfield in its stage's turf; the turf beside it a shade darker.
+        stripes.setColorAt(k % STRIPES, colorOf(lookAt(m).turf[k % 2]))
+        const turf = sideTurfAt(m, k)
         for (let side = 0; side < 2; side += 1) {
           const s = side ? 1 : -1
           const i = STRIPES + (k % STRIPES) * 2 + side
@@ -914,13 +1049,14 @@ export default function Lane() {
     // The painted distances, from just behind the focus to as far as the preset sees.
     const far = Math.min(getQuality().viewDistance, 420)
     const first = Math.max(1, Math.floor((focus - 20) / MARK_EVERY))
-    if (first === laid.mark && far === laid.far) return
+    if (first === laid.mark && far === laid.far && world === laid.markWorld) return
     laid.mark = first
     laid.far = far
+    laid.markWorld = world
     glyphs.material.uniforms.uFar.value = far
     const cells = glyphs.geometry.getAttribute('aGlyph')
     let n = 0
-    for (let k = first; k * MARK_EVERY < focus + far && n < MAX_GLYPHS - 20; k += 1) {
+    for (let k = first; k * MARK_EVERY < focus + far && n < MAX_GLYPHS - WALL_GLYPHS - 20; k += 1) {
       const metre = k * MARK_EVERY
       const count = spell(metre)
       label[count] = UNIT_M
@@ -938,6 +1074,31 @@ export default function Lane() {
         cells.setX(n, cell)
         n += 1
         x += advance
+      }
+    }
+    // The ballpark's outfield wall: its distance every 50 metres on both walls, facing the field.
+    if (!lava) {
+      const w0 = Math.max(1, Math.ceil((focus - 10) / WALL_MARK_EVERY))
+      for (let k = w0; k * WALL_MARK_EVERY < focus + far * 0.8 && n < MAX_GLYPHS - 14; k += 1) {
+        const metre = k * WALL_MARK_EVERY
+        const count = spell(metre)
+        label[count] = UNIT_M
+        const total = count + 1
+        let width = 0
+        for (let i = 0; i < total; i += 1) width += label[i] === COMMA ? WALL_GLYPH.advance * 0.5 : WALL_GLYPH.advance
+        for (let side = 0; side < 2; side += 1) {
+          // Read left to right from the field: northwards on the west wall, southwards on the east.
+          const dir = side ? -1 : 1
+          let along = -width / 2
+          for (let i = 0; i < total; i += 1) {
+            const advance = label[i] === COMMA ? WALL_GLYPH.advance * 0.5 : WALL_GLYPH.advance
+            trackPoint(metre + dir * (along + advance / 2), (side ? 1 : -1) * (OF_WALL_X - 0.04), WALL_GLYPH.y, _p)
+            glyphs.setMatrixAt(n, _m.compose(_p, ON_WALL[side], _s.set(WALL_GLYPH.w, WALL_GLYPH.h, 1)))
+            cells.setX(n, label[i])
+            n += 1
+            along += advance
+          }
+        }
       }
     }
     glyphs.count = n

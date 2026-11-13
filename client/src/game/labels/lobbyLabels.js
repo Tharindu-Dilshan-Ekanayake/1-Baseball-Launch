@@ -1,7 +1,7 @@
 import { EGGS, PADS, PETS, RARITIES, SHOP, TIRES, WORLD_PORTALS, WORLDS } from '@shared/balance'
 import { formatNumber } from '@shared/format'
 import { isPadUnlocked } from '@shared/logic'
-import { EGG_STANDS, FREE_REWARD, LAUNCH_STAND, padCenterZ, PORTALS, SPHINX_STAND, STRETCH_LANE, TABLE_X, TIRE_STANDS } from '@shared/world'
+import { BALL_SHOP, SCREEN, EGG_STANDS, FREE_REWARD, padCenterZ, PORTALS, SPHINX_STAND, TABLE_X, TIRE_STANDS } from '@shared/world'
 
 import { eggHeight } from '../world/eggs'
 import { BOARD_BOTTOM, BOARD_HEIGHT, PAD_THEMES } from '../world/structures'
@@ -17,13 +17,14 @@ export const TEXT = {
   white: ['#ffffff', '#ffffff', '#dfe7f0'],
   red: ['#ffb0a8', '#ff4a3b', '#d4142a'],
   blue: ['#e0faff', '#7fe2ff', '#2fa8ff'],
+  lava: ['#ffe0a0', '#ff8a1e', '#e2240c'],
 }
 
 const tint = (hex) => ['#ffffff', hex, hex]
 
 /**
- * "x4 POWER / Bubblegum Bar / LOCKED: 2 Rebirths", "x1 POWER / Wooden Bar / FREE",
- * "x40 POWER / VERY OP! / 150K Wins"... (hung on each pull-up bar's backboard).
+ * "x4 POWER / Rookie Cage / LOCKED: 2 Rebirths", "x1 POWER / Little League Cage / FREE",
+ * "x40 POWER / VERY OP! / 150K Wins"... (hung on each batting cage's backboard).
  */
 export function padLabelSpec(index, unlocked, world = 0) {
   const pad = PADS[index]
@@ -35,7 +36,7 @@ export function padLabelSpec(index, unlocked, world = 0) {
   if (unlocked) {
     lines.push({ text: pad.rebirths === 0 && !pad.product ? 'FREE' : 'UNLOCKED', size: 44, gradient: TEXT.green })
   } else if (pad.world !== undefined && world !== pad.world) {
-    lines.push({ text: `${WORLDS[pad.world].name.toUpperCase()} ONLY`, size: 44, icon: 'portal', gradient: TEXT.blue })
+    lines.push({ text: `${WORLDS[pad.world].name.toUpperCase()} ONLY`, size: 44, icon: 'portal', gradient: TEXT.lava })
   } else if (pad.product) {
     lines.push({ text: pad.tag, size: 46, rainbow: true })
     lines.push({ text: `${formatNumber(SHOP[pad.product].price)} Wins`, size: 42, icon: 'trophy', gradient: TEXT.gold })
@@ -65,7 +66,7 @@ const padReserve = (index) => {
 export function padLabels(profile) {
   return PADS.map((pad, i) => ({
     id: `pad-${i}`,
-    // Well in front of the treadmill's backboard (structures.js), centred on it: the label
+    // Well in front of the cage's backboard (structures.js), centred on it: the label
     // turns to face the camera and is wider than the board, so any nearer and its far half
     // swings behind the board seen from an angle.
     position: [TABLE_X - 2.2, BOARD_BOTTOM + BOARD_HEIGHT / 2, padCenterZ(i)],
@@ -75,7 +76,7 @@ export function padLabels(profile) {
   }))
 }
 
-/** Ownership state of each ball stand: 'equipped' | 'owned' | 'buy' | 'locked'. */
+/** Ownership state of each bat stand: 'equipped' | 'owned' | 'buy' | 'locked'. */
 export function standState(profile, index) {
   const tire = TIRES[index]
   if (profile.equippedTire === tire.id) return 'equipped'
@@ -84,7 +85,7 @@ export function standState(profile, index) {
   return !previous || profile.ownedTires.includes(previous.id) ? 'buy' : 'locked'
 }
 
-/** A ball's rarity line: in its rarity's colour, rainbow for the Secret ones. */
+/** A bat's rarity line: in its rarity's colour, rainbow for the Secret ones. */
 const rarityLine = (tire) => {
   const rarity = RARITIES[tire.rarity]
   return tire.rarity === 'secret'
@@ -93,8 +94,8 @@ const rarityLine = (tire) => {
 }
 
 /**
- * Like the reference: a state tag (EQUIPPED / OWNED / CAN BUY! / LOCKED), the ball's name,
- * "+3 per kick", then its price in Wins - or its rarity once it's yours.
+ * Like the reference: a state tag (EQUIPPED / OWNED / CAN BUY! / LOCKED), the bat's name,
+ * "+3 Power" (each swing), then its price in Wins - or its rarity once it's yours.
  */
 export function standLabelSpec(index, state) {
   const tire = TIRES[index]
@@ -138,7 +139,7 @@ export function standLabels(profile) {
 }
 
 /** The big eggs' title colours. */
-const BIG_EGG_TEXT = { volcano: TEXT.red, beach: TEXT.blue }
+const BIG_EGG_TEXT = { volcano: TEXT.red, beach: TEXT.lava }
 
 export function eggLabels(profile) {
   return EGG_STANDS.map((stand) => {
@@ -149,7 +150,7 @@ export function eggLabels(profile) {
       ? [
           { text: `${egg.name} Egg`, size: 54, gradient: BIG_EGG_TEXT[stand.eggId] || TEXT.red },
           elsewhere
-            ? { text: `${WORLDS[egg.world].name.toUpperCase()} ONLY`, size: 44, icon: 'portal', gradient: TEXT.blue }
+            ? { text: `${WORLDS[egg.world].name.toUpperCase()} ONLY`, size: 44, icon: 'portal', gradient: TEXT.lava }
             : { text: `${formatNumber(egg.cost.wins)} Wins`, size: 46, icon: 'trophy', gradient: TEXT.gold },
         ]
       : [
@@ -190,14 +191,14 @@ export function sphinxLabel(stock) {
   }
 }
 
-/** The jumbotron over the south stand, lettered like the arch: the game's name. */
+/** The scoreboard on the south hills, lettered like the banner: the game's name. */
 const scoreboardLabel = () => ({
   id: 'scoreboard',
   position: [SCOREBOARD.x, SCOREBOARD.y + 0.8 + SCOREBOARD.height / 2, SCOREBOARD.z - 1.5],
   spec: {
     lines: [
-      { text: '+1 ARM LENGTH', size: 100, gradient: TEXT.gold },
-      { text: 'STRETCH - FLY FAR - REBIRTH', size: 44, gradient: TEXT.white },
+      { text: '+1 BASEBALL LAUNCH', size: 100, gradient: TEXT.gold },
+      { text: 'SWING - HIT FAR - REBIRTH', size: 44, gradient: TEXT.white },
     ],
     pxPerUnit: 34,
   },
@@ -212,7 +213,7 @@ const freeRewardLabel = () => ({
 })
 
 /**
- * Where the portal goes: Palm Beach (and what opens it - rebirths and Wins - until it's
+ * Where the portal goes: Lava Land (and what opens it - rebirths and Wins - until it's
  * open), or home.
  */
 const portalLabel = (profile) => (portal) => {
@@ -225,7 +226,7 @@ const portalLabel = (profile) => (portal) => {
         { text: 'Back home', size: 42, gradient: TEXT.white },
       ]
     : [
-        { text: WORLDS[1].name.toUpperCase(), size: 60, gradient: TEXT.blue },
+        { text: WORLDS[1].name.toUpperCase(), size: 60, gradient: TEXT.lava },
         open
           ? { text: `x${WORLDS[1].wins} Wins!`, size: 46, icon: 'trophy', gradient: TEXT.gold }
           : { text: `${need.rebirths} Rebirths + ${formatNumber(need.wins)} Wins`, size: 40, icon: 'rebirth', gradient: TEXT.white },
@@ -245,14 +246,28 @@ const portalLabel = (profile) => (portal) => {
   }
 }
 
-/** Over the far end of the stretch lane: what walking further back gets you. */
-const laneLabel = () => ({
-  id: 'stretch-lane',
-  position: [LAUNCH_STAND.x, 4.4, STRETCH_LANE.maxZ],
+/** Over the backstop, facing you as you walk up from spawn: where to bat. */
+const homePlateLabel = () => ({
+  id: 'home-plate',
+  position: [0, SCREEN.height + 2.4, SCREEN.z],
   spec: {
     lines: [
-      { text: 'STRETCH LANE', size: 60, gradient: TEXT.gold },
-      { text: 'Longer arms = FLY FARTHER!', size: 40, gradient: TEXT.white },
+      { text: 'HOME PLATE', size: 60, gradient: TEXT.gold },
+      { text: 'STEP UP TO BAT!', size: 42, gradient: TEXT.white },
+    ],
+    pxPerUnit: 52,
+  },
+  fade: 120,
+})
+
+/** Over the ball shop's stall: what it sells. */
+const ballShopLabel = () => ({
+  id: 'ball-shop',
+  position: [BALL_SHOP.x + 3.6, 9.4, BALL_SHOP.z],
+  spec: {
+    lines: [
+      { text: 'BALL SHOP', size: 62, gradient: TEXT.gold },
+      { text: 'Upgrade your ball!', size: 42, gradient: TEXT.white },
     ],
     pxPerUnit: 52,
   },
@@ -261,5 +276,5 @@ const laneLabel = () => ({
 
 /** Every label in the lobby. */
 export function lobbyLabels(profile, { sphinxStock = 0 } = {}) {
-  return [...padLabels(profile), ...standLabels(profile), ...eggLabels(profile), sphinxLabel(sphinxStock), scoreboardLabel(), freeRewardLabel(), laneLabel(), ...PORTALS.map(portalLabel(profile))]
+  return [...padLabels(profile), ...standLabels(profile), ...eggLabels(profile), sphinxLabel(sphinxStock), scoreboardLabel(), freeRewardLabel(), homePlateLabel(), ballShopLabel(), ...PORTALS.map(portalLabel(profile))]
 }

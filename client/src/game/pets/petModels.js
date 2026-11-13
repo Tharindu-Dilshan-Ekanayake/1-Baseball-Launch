@@ -244,56 +244,54 @@ const MODELS = {
     nose(p, '#c98a1e')
   },
 
-  // --- Palm Beach's Beach Egg ---------------------------------------------------------
+  // --- Lava Land's Lava Egg (the ids are the template's beach pets) ----------------------
 
+  /** Fire Hawk: a red bird with flame-orange wings, a glowing crest and a gold beak. */
   seagull: (p) => {
-    body(p, '#ffffff', { belly: '#f2f4f8', feet: '#ffb01e' })
-    // Grey back and wing tips, black-tipped.
-    p.box(0, 1.1, -0.1, 0.9, 0.06, 0.7, '#b8c0cc', STYLE.SMOOTH)
-    wings(p, '#b8c0cc', { span: 0.42, y: 0.66 })
-    for (const side of [-1, 1]) p.box(side * 0.98, 0.98, -0.05, 0.16, 0.12, 0.09, '#1d1f24', STYLE.SMOOTH, [0, 0, side * 0.6])
-    eyes(p, { y: 0.66, spread: 0.24, size: 0.26 })
-    // A big yellow beak with its red spot.
+    body(p, '#e8301c', { belly: '#ffb21a', feet: '#ffd21f' })
+    // A crest of flame on its head, and fiery wings with glowing tips.
+    p.box(0, 1.16, -0.02, 0.2, 0.22, 0.5, '#ff8a1e', STYLE.GLOW)
+    p.box(0, 1.3, -0.12, 0.14, 0.18, 0.3, '#ffd27a', STYLE.GLOW)
+    wings(p, '#ff6a1e', { span: 0.42, y: 0.66, glow: true })
+    for (const side of [-1, 1]) p.box(side * 0.98, 0.98, -0.05, 0.16, 0.12, 0.09, '#ffd27a', STYLE.GLOW, [0, 0, side * 0.6])
+    eyes(p, { y: 0.66, spread: 0.24, size: 0.26, color: '#2a0a04' })
     p.box(0, 0.44, 0.6, 0.2, 0.14, 0.24, '#ffc21f', STYLE.SMOOTH)
-    p.box(0, 0.4, 0.71, 0.08, 0.06, 0.04, '#ff3b3b', STYLE.SMOOTH)
-    tail(p, '#e4e8ee', { y: 0.5, len: 0.24 })
+    tail(p, '#ff4a0a', { y: 0.5, len: 0.24 })
   },
+  /** Magma Dolphin: dark cooled rock with glowing lava seams and a molten belly. */
   dolphin: (p) => {
-    body(p, '#4aa8ff', { belly: '#dff2ff', feet: '#3a8de0' })
-    // Dorsal fin, side flippers and a tail fluke.
-    p.box(0, 1.24, -0.12, 0.12, 0.34, 0.3, '#3a8de0', STYLE.STUDS, [0.5, 0, 0])
-    for (const side of [-1, 1]) p.box(side * 0.6, 0.38, 0.05, 0.3, 0.1, 0.24, '#3a8de0', STYLE.SMOOTH, [0, 0, side * -0.5])
-    p.box(0, 0.46, -0.7, 0.14, 0.14, 0.4, '#3a8de0')
-    p.box(0, 0.5, -0.92, 0.62, 0.1, 0.2, '#2f7ad0', STYLE.SMOOTH)
-    eyes(p, { y: 0.66, spread: 0.26 })
-    // The snout, and a smile.
-    p.box(0, 0.4, 0.62, 0.3, 0.16, 0.26, '#6abaff', STYLE.SMOOTH)
-    p.box(0, 0.34, 0.76, 0.22, 0.03, 0.02, '#1d3a6a', STYLE.SMOOTH)
+    body(p, '#3a2a2a', { belly: '#ff7a1e', feet: '#2a1e1e', style: STYLE.LAVA })
+    p.box(0, 1.24, -0.12, 0.12, 0.34, 0.3, '#ff5a14', STYLE.GLOW, [0.5, 0, 0])
+    for (const side of [-1, 1]) p.box(side * 0.6, 0.38, 0.05, 0.3, 0.1, 0.24, '#2a1e1e', STYLE.SMOOTH, [0, 0, side * -0.5])
+    p.box(0, 0.46, -0.7, 0.14, 0.14, 0.4, '#2a1e1e')
+    p.box(0, 0.5, -0.92, 0.62, 0.1, 0.2, '#ff6a1e', STYLE.GLOW)
+    eyes(p, { y: 0.66, spread: 0.26, color: '#ff5a14' })
+    p.box(0, 0.4, 0.62, 0.3, 0.16, 0.26, '#4a3434', STYLE.SMOOTH)
+    p.box(0, 0.34, 0.76, 0.22, 0.03, 0.02, '#ffd27a', STYLE.GLOW)
   },
+  /** Lava Shark: jet black with glowing orange fins and a burning grin. */
   shark: (p) => {
-    body(p, '#7f8fa6', { belly: '#f2f4f8', feet: '#6a7a92' })
-    // A tall dorsal fin, side fins and a big crescent tail.
-    p.box(0, 1.36, -0.16, 0.12, 0.5, 0.36, '#6a7a92', STYLE.STUDS, [0.55, 0, 0])
-    for (const side of [-1, 1]) p.box(side * 0.62, 0.4, 0.05, 0.34, 0.1, 0.26, '#6a7a92', STYLE.SMOOTH, [0, 0, side * -0.55])
-    p.box(0, 0.5, -0.66, 0.16, 0.16, 0.34, '#6a7a92')
-    p.box(0, 0.66, -0.88, 0.1, 0.5, 0.18, '#5a6a82', STYLE.SMOOTH, [0.5, 0, 0])
-    eyes(p, { y: 0.74, spread: 0.26, size: 0.24 })
-    // A toothy grin.
-    p.box(0, 0.36, 0.505, 0.62, 0.14, 0.03, '#2a1418', STYLE.SMOOTH)
+    body(p, '#1a1416', { belly: '#3a2a2a', feet: '#120e10' })
+    p.box(0, 1.36, -0.16, 0.12, 0.5, 0.36, '#ff5a14', STYLE.GLOW, [0.55, 0, 0])
+    for (const side of [-1, 1]) p.box(side * 0.62, 0.4, 0.05, 0.34, 0.1, 0.26, '#ff6a1e', STYLE.GLOW, [0, 0, side * -0.55])
+    p.box(0, 0.5, -0.66, 0.16, 0.16, 0.34, '#1a1416')
+    p.box(0, 0.66, -0.88, 0.1, 0.5, 0.18, '#ff5a14', STYLE.GLOW, [0.5, 0, 0])
+    eyes(p, { y: 0.74, spread: 0.26, size: 0.24, color: '#ff3b0a' })
+    p.box(0, 0.36, 0.505, 0.62, 0.14, 0.03, '#ff4a0a', STYLE.GLOW)
     for (let i = 0; i < 5; i += 1) p.box(-0.24 + i * 0.12, 0.41, 0.53, 0.07, 0.06, 0.02, '#ffffff', STYLE.SMOOTH)
   },
+  /** Inferno Kraken: a deep red dome, eight molten tentacles with blazing suckers. */
   kraken: (p) => {
-    body(p, '#b23ad8', { belly: '#ff8ae0', feet: '#8a22b0', style: STYLE.STUDS })
-    // A domed head, and eight curling tentacles with glowing suckers.
-    p.box(0, 1.24, -0.04, 0.84, 0.36, 0.84, '#c24ae6')
-    p.box(0, 1.46, -0.04, 0.5, 0.16, 0.5, '#d266f0')
+    body(p, '#a8140c', { belly: '#ff8a1e', feet: '#7a0c08', style: STYLE.STUDS })
+    p.box(0, 1.24, -0.04, 0.84, 0.36, 0.84, '#c82014')
+    p.box(0, 1.46, -0.04, 0.5, 0.16, 0.5, '#ff5a14', STYLE.LAVA)
     for (let i = 0; i < 8; i += 1) {
       const a = (i / 8) * Math.PI * 2 + Math.PI / 8
       const x = Math.sin(a) * 0.6
       const z = Math.cos(a) * 0.6
-      p.box(x, 0.12, z, 0.18, 0.18, 0.18, '#a22ec8', STYLE.SMOOTH)
-      p.box(x * 1.28, 0.08, z * 1.28, 0.14, 0.14, 0.14, '#8a22b0', STYLE.SMOOTH)
-      p.box(x * 1.28, 0.17, z * 1.28, 0.06, 0.03, 0.06, '#7ff6ff', STYLE.GLOW)
+      p.box(x, 0.12, z, 0.18, 0.18, 0.18, '#8a1008', STYLE.SMOOTH)
+      p.box(x * 1.28, 0.08, z * 1.28, 0.14, 0.14, 0.14, '#ff4a0a', STYLE.SMOOTH)
+      p.box(x * 1.28, 0.17, z * 1.28, 0.06, 0.03, 0.06, '#ffd27a', STYLE.GLOW)
     }
     eyes(p, { y: 0.68, spread: 0.24, size: 0.32, color: '#ffd21f' })
   },

@@ -2,9 +2,11 @@ import { reportedAnim } from '../bloxity/emotes'
 import { environment } from '../bloxity/env'
 import { GAME_SLUG, joinToken } from '../bloxity/identity'
 import { getSDK, safeCall, waitForSDK } from '../bloxity/sdk'
-import { LAUNCH_STAND } from '@shared/world'
 
-import { meterAtZ } from '../game/roll/path'
+import { stationAt } from '@shared/world'
+
+import { CONTACT_METER, contactX, laneOf } from '../game/roll/path'
+import { bouncesFor } from '../game/roll/rollControl'
 import { runtime } from '../game/runtime'
 import { getGame } from '../store/game'
 import { setTransport } from './actions'
@@ -64,7 +66,7 @@ async function findDevServer() {
   for (const port of DEV_PORTS) candidates.push(`${window.location.protocol}//${window.location.hostname}:${port}`)
   for (const url of new Set(candidates)) {
     const health = await healthOf(url)
-    if (health?.ok && health.game === '1-arm-length') return url
+    if (health?.ok && health.game === '1-baseball-launch') return url
   }
   return null
 }
@@ -228,20 +230,24 @@ function attachRoom(room, identity, Callbacks, endpoint, gen) {
       case 'leaderboards':
         getGame().setLeaderboards(payload)
         break
-      case 'ghostRoll':
-        // Never your own launch (you're flying already), and only launches down your
-        // world's runway. Their avatar replays it (remote/): from the launch posts, as far
-        // back as they'd walked.
+      case 'ghostRoll': {
+        // Never your own hit (yours is flying already), and only hits down your world's
+        // field. Their avatar swings (remote/) and their ball flies down its own line
+        // (roll/BallFlight): from home plate, bouncing as their ball does.
         if (payload.sid === room.sessionId) break
         if ((payload.world || 0) !== (getGame().profile.world || 0)) break
+        // The station they hit from: the one whose batter's box they stood in.
+        const station = Math.max(0, stationAt(payload.x, payload.z, 3))
         runtime.ghostRolls.set(payload.sid, {
           ...payload,
-          fromMeter: meterAtZ(LAUNCH_STAND.z),
-          startX: LAUNCH_STAND.x,
-          pull: Math.max(0, payload.z - LAUNCH_STAND.z),
+          fromMeter: CONTACT_METER,
+          startX: contactX(station),
+          lane: laneOf(station),
+          bounce: bouncesFor(payload.ballId),
           startedAt: performance.now(),
         })
         break
+      }
       case 'kicked':
         leaving = true
         replaced = true

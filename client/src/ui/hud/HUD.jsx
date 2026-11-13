@@ -2,11 +2,11 @@ import { useCallback } from 'react'
 
 import { setSpeedTunnelElement } from '../../game/roll/hudLink'
 import { useGame } from '../../store/game'
+import BallShopOpener from './BallShopOpener'
 import EggPanel from './EggPanel'
 import InteractPrompt from './InteractPrompt'
 import LeftMenu from './LeftMenu'
 import HealthBar from './HealthBar'
-import PassButtons from './PassButtons'
 import HitFlash from './HitFlash'
 import RollButton from './RollButton'
 import RollOverlay from './RollOverlay'
@@ -44,25 +44,36 @@ export function HUD() {
   const panelOpen = useGame((s) => s.panel !== null)
   // While your ball flies the side menus clear out, as in the reference.
   const rolling = useGame((s) => Boolean(s.roll || s.rollResult))
+  // At a batting station (the HIT / SWING button is up): everything else steps aside - the
+  // menus, top bar, goal banner, level bar and prompts - so the batter, the ball and the
+  // one button are all there is. (Display none, not unmounted: they come straight back.)
+  const batting = useGame((s) => s.zone.atPlate && !s.roll && !s.rollResult)
+  const hide = (on) => ({ display: on ? 'none' : 'contents' })
   return (
     <div className="pp-font pointer-events-none absolute inset-0 z-20 select-none">
       <div className="absolute inset-0 transition-opacity duration-150" style={{ opacity: panelOpen ? 0 : 1, visibility: panelOpen ? 'hidden' : 'visible' }}>
         <SpeedTunnel />
-        <TopBar />
+        <div style={hide(batting)}>
+          <TopBar />
+        </div>
         <StatsPanel />
         {/* Hidden, not unmounted, while rolling: remounting them at the moment of the
             push-off cost a visible hitch on slow phones. display: none (not visibility)
             takes them out of style and layout altogether, so the counters changing every
             frame of a flight don't re-lay them out each time. */}
-        <div style={{ display: rolling ? 'none' : 'contents' }}>
+        <div style={hide(rolling || batting)}>
           <LeftMenu />
-          <PassButtons />
           <TopCenter />
         </div>
-        <HealthBar />
+        <div style={hide(batting)}>
+          <HealthBar />
+        </div>
         <RollButton />
-        <InteractPrompt />
-        <EggPanel />
+        <div style={hide(batting)}>
+          <InteractPrompt />
+          <EggPanel />
+        </div>
+        <BallShopOpener />
         <RollOverlay />
         <HitFlash />
       </div>

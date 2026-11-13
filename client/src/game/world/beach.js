@@ -5,7 +5,7 @@ import { mulberry32 } from '@shared/rng'
 import { STYLE } from '../materials'
 
 /**
- * Palm Beach's dressing round the lobby (World 2 only): chunky voxel palm trees in the
+ * The template's Palm Beach dressing (unused: Lava Land replaced it - hills.js buildVolcano): chunky voxel palm trees in the
  * plaza's corners, along the sand strip and out on the beach, beach umbrellas with deck
  * chairs and surfboards stuck in the sand along the sidelines - never on the stands, eggs,
  * treadmills, kick zone, portal, ball shop, leaderboards or the spawn - and out in the

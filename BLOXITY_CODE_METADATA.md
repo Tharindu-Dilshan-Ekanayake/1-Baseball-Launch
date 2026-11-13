@@ -3,17 +3,20 @@ canDie: false
 hasScore: true
 ---
 
-# +1 Arm Length: Boxity integration
+# +1 Baseball Launch: Boxity integration
 
-The player cannot die: there is no death or game-over screen. You do rubber-arm pull-ups
-for Power, grab the two launch posts on the Launch Pad, walk back with your own controls
-while your arms stretch like rubber, and let go to fly down the rainbow runway: more Power
-flies you further, and the stretch meter (let go at the top of the twang for PERFECT) adds
-up to x1.6 Wins. You always get another launch. Your arms (24 kinds, bought with Wins)
-change how your Bloxity avatar's arms look and how much Power each gain is worth.
+The player cannot die: there is no death or game-over screen. You swing in the batting
+cages for Power, step up to home plate and time your swing on the pitch (the swing meter
+peaks as the ball crosses the plate - PERFECT for up to x1.5 distance and x1.6 Wins), and
+the ball flies down the field, bouncing to a stop: more Power hits it further, and every
+metre it travels pays Wins. You always get another pitch. Your bat (24 kinds, each its own
+shape - wood, bamboo, stone, bone, copper, steel, metal, gold, lava, diamond... - bought
+with Wins, carried on your back) sets how much Power each gain is worth; your ball (12
+kinds from the Ball Shop, the Fire Ball leaving a trail of flames) flies further and pays
+more. Rebirth 8 times and hold 1M Wins to open the portal to Lava Land (World 2, x3 Wins).
 
 Built on the +1 Tire Rolling template: inside the code the old names stay (`health` is
-Power, a `tire` is a pair of arms, a `pad` is a pull-up bar, a `roll` is a launch).
+Power, a `tire` is a bat, a `pad` is a batting cage, a `roll` is a hit).
 
 ## Leaderboards
 
@@ -26,7 +29,7 @@ player leaves, each pod sends the changed scores of its verified players to
 |------------|------------------|--------------------------------------|---------|
 | `rebirths` | Rebirths         | `profile.rebirths`                   | number  |
 | `wins`     | Total Wins       | `profile.stats.totalWins`            | compact |
-| `distance` | Longest Flight (m) | `floor(profile.stats.bestDistance)`  | compact |
+| `distance` | Longest Hit (m)  | `floor(profile.stats.bestDistance)`  | compact |
 | `playtime` | Minutes Played   | `floor(profile.stats.playtime / 60)` | number  |
 
 All four are `order: desc`, `mode: best`, `reset: none`.
@@ -41,6 +44,10 @@ the pod the buyer plays on. Unknown skus are answered 400 so Boxity refunds them
 
 The client sends `adReward { placement, rewardToken }`; the server verifies the token
 with `POST {api}/v1/ads/reward/verify` before granting anything.
+
+The game shows **no automatic ads**: no screen/banner ads over gameplay or panels (the
+client never calls `ads.screen`), and no ads on a timer. The only ads are the rewarded
+ones a player asks for by tapping **Watch Ad** in the Store (a popup button).
 
 ## Open Rooms
 
@@ -65,7 +72,7 @@ shows. Body proportions are applied by moving bones, so accessories follow them.
 |-------------------------|---------------------------------------------------------------|
 | `BLOXITY_REPORT_TOKEN`  | Token for leaderboard and room reports (none set = no reports) |
 | `MATCHMAKER_REPORT_URL` | Where the Open Rooms reporter posts (injected by Boxity hosting) |
-| `BLOXITY_GAME_ID`       | Hosted game id for reports (default `1-arm-length`)              |
+| `BLOXITY_GAME_ID`       | Hosted game id for reports (default `1-baseball-launch`; set it for this game) |
 | `LEGION_WEBHOOK_SECRET` | Must match the webhook's `x-legion-webhook-secret` header     |
 | `MONGODB_URI`           | Shared database for profiles and Gems grants (SQLite without) |
 | `BLOXITY_API_URL` etc.  | Platform URLs; production defaults (`server/src/bloxityEnv.js`) |

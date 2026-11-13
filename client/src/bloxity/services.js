@@ -192,9 +192,9 @@ export async function inviteFriend(userId) {
 let screenType = null
 
 /**
- * Tells Boxity which screen the player is on, for its screen ads: 'gameplay' normally,
- * 'panel' while a modal panel is open. integration.js switches this automatically
- * from the game store's `panel`; calling it again with the same type does nothing.
+ * Tells Boxity which screen the player is on, for its screen ads. NOT used: this game
+ * shows no screen ads (integration.js never calls it); ads are rewarded ones the player
+ * taps for. Kept for completeness; calling it again with the same type does nothing.
  */
 export function setScreen(type) {
   if (!type || type === screenType) return

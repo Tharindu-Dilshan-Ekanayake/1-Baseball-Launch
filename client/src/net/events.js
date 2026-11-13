@@ -1,4 +1,4 @@
-import { TIRES, TUTORIAL, WORLDS } from '@shared/balance'
+import { BALLS, TIRES, TUTORIAL, WORLDS } from '@shared/balance'
 import { formatNumber } from '@shared/format'
 
 import { sfx } from '../audio/sfx'
@@ -9,11 +9,14 @@ import { getGame } from '../store/game'
 import { fadeThrough } from '../ui/fade'
 import { refreshRemoteWorlds } from './remotePlayers'
 
-/** A point above wherever you're watching: you in the lobby, or your rolling tire. */
+/** A point above wherever you're watching: you in the lobby, or your ball in flight. */
 const atPlayer = (dy = 1.2) => {
   const p = roll.active ? roll.position : runtime.player.position
   return { x: p.x, y: p.y + dy, z: p.z }
 }
+
+/** Whether the tutorial's last step was just done (it ends on a purchase). */
+const tutorialDone = (before, after) => before.tutorialStep < TUTORIAL.length && after.tutorialStep >= TUTORIAL.length
 
 /**
  * Applies one authority event to the client: updates the store and kicks off any
@@ -31,14 +34,19 @@ export function handleServerEvent(type, payload) {
         sfx.rebirth()
         burst({ ...atPlayer(), count: 60, speed: 9 })
       } else if (game.profileLoaded && payload.profile.ownedTires.length > before.ownedTires.length) {
-        // A new ball: a shower of confetti and its name up in lights.
+        // A new bat: a shower of confetti and its name up in lights.
         sfx.buy()
         sfx.wins()
         burst({ ...atPlayer(2.5), count: 60, palette: 'confetti', speed: 9 })
         const tire = TIRES.find((t) => t.id === payload.profile.equippedTire)
-        // The first ball bought ends the tutorial: say so too.
-        const done = before.tutorialStep < TUTORIAL.length && payload.profile.tutorialStep >= TUTORIAL.length
-        if (tire) game.showToast(`NEW ARMS: ${tire.name}!${done ? ' Tutorial complete - have fun!' : ''}`)
+        if (tire) game.showToast(`NEW BAT: ${tire.name}!${tutorialDone(before, payload.profile) ? ' Tutorial complete - have fun!' : ''}`)
+      } else if (game.profileLoaded && (payload.profile.ownedBalls?.length || 0) > (before.ownedBalls?.length || 0)) {
+        // A new ball: the same, in its colours.
+        sfx.buy()
+        sfx.wins()
+        burst({ ...atPlayer(2.5), count: 60, palette: 'gold', speed: 9 })
+        const ball = BALLS.find((b) => b.id === payload.profile.equippedBall)
+        if (ball) game.showToast(`NEW BALL: ${ball.name}!${tutorialDone(before, payload.profile) ? ' Tutorial complete - have fun!' : ''}`)
       }
       break
     }
@@ -58,7 +66,7 @@ export function handleServerEvent(type, payload) {
       break
 
     case 'roll': {
-      // (How well you let go shows as you shoot past the posts: rollControl.)
+      // (How well you timed the swing shows as the ball leaves the bat: rollControl.)
       beginRoll(payload)
       break
     }
@@ -72,7 +80,7 @@ export function handleServerEvent(type, payload) {
     case 'streak':
       // Played past midnight: the streak's next day starts now.
       sfx.wins()
-      game.showToast(`DAY ${payload.days} STREAK! x${payload.multiplier.toFixed(1)} Wins on every launch`)
+      game.showToast(`DAY ${payload.days} STREAK! x${payload.multiplier.toFixed(1)} Wins on every hit`)
       break
 
     case 'pack':
@@ -95,12 +103,12 @@ export function handleServerEvent(type, payload) {
       break
 
     case 'badge':
-      // (After the moment it was earned in - usually a launch - so that frame stays light.)
+      // (After the moment it was earned in - usually a hit - so that frame stays light.)
       setTimeout(() => sfx.wins(), 1200)
       break
 
     case 'star': {
-      // Palm Beach's Secret Star, found: a shower of gold and the news.
+      // Lava Land's Secret Star, found: a shower of gold and the news.
       sfx.wins()
       sfx.levelUp()
       burst({ ...atPlayer(2), count: 70, palette: 'gold', speed: 10 })
@@ -109,7 +117,7 @@ export function handleServerEvent(type, payload) {
     }
 
     case 'world': {
-      // Through the portal: a flash of white while the new world's sky and track go
+      // Through the portal: a flash of white while the new world's sky and field go
       // in (GameScene follows profile.world), and a fanfare.
       fadeThrough(() => {})
       sfx.rebirth()
@@ -117,7 +125,7 @@ export function handleServerEvent(type, payload) {
       const world = WORLDS[payload.world]
       game.showToast(
         payload.world === 1
-          ? `WELCOME TO ${world.name.toUpperCase()}! x${world.wins} Wins on every launch!${payload.first ? ' A Secret Star is hidden here...' : ''}`
+          ? `WELCOME TO ${world.name.toUpperCase()}! x${world.wins} Wins on every hit!${payload.first ? ' A Secret Star is hidden here...' : ''}`
           : `Back in ${world.name}!`,
       )
       break

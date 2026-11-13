@@ -18,14 +18,14 @@ import {
 
 import { getQuality } from '../../store/quality'
 import { glowTime } from '../glow'
-import { tireGlow } from '../tire'
+import { ballLook, ballStyle } from '../balls'
 import { COS, SIN, TIRE_SIZE } from './path'
 import { roll } from './rollControl'
 
 /**
- * The kicked ball's trail: a glowing comet tail streaming out behind it, in the ball's
- * own colour fading towards white (every colour of the rainbow, flowing, behind the
- * rainbow balls; fire behind a PERFECT kick). It follows where the ball has been over
+ * The hit ball's trail: a glowing comet tail streaming out behind it, in the ball's own
+ * colours (balls.js head to tail; every colour of the rainbow, flowing, behind the Rainbow
+ * Ball; fire behind a PERFECT hit with a plain ball). It follows where the ball has been over
  * the last TRAIL_TIME, so the faster the ball, the longer the streak, and it shrinks
  * away by itself once the ball comes to rest. Two layers, so it reads from any angle:
  *  - a smooth ribbon, widest at the ball and tapering to nothing, bright down its middle
@@ -33,7 +33,10 @@ import { roll } from './rollControl'
  *  - a string of soft glowing discs down the same path, shrinking and fading towards
  *    the tip - the comet's cone you see from the chase camera, which looks along the
  *    path, where a ribbon is edge-on.
- * On presets with particles, a few sparkles drift off it too.
+ * On presets with particles, what flies off it is the ball's own (balls.js `fx`): the Fire
+ * Ball spits flames and embers that rise and swirl, the Ice Ball sheds frost that drifts
+ * down, the Lightning and Plasma Balls crackle with sparks, the Golden Ball glitters, the
+ * Galaxy and Rainbow Balls shed stars and the Black Hole drags glowing matter in after it.
  *
  * Three draw calls at most: the ribbon (a strip of quads rebuilt each frame from a ring
  * of past positions), the discs and the sparkles (camera-facing instanced quads, fixed
@@ -50,16 +53,31 @@ const HEAD_WIDTH = 0.95
 const ORBS = 20
 const ORB_SIZE = 2.1
 
-/** Balls whose trail runs through every colour. */
-const RAINBOW_TRAILS = new Set(['rainbow', 'unicorn', 'infinity'])
 const PERFECT_HEAD = new Color('#fff27a')
 const PERFECT_TAIL = new Color('#ff3b3b')
 const WHITE = new Color('#ffffff')
 
 /** Sparkles alive at once, how long each lasts (seconds) and how many a second. */
-const SPARKLES = 40
+const SPARKLES = 64
 const SPARKLE_LIFE = 0.7
 const SPARKLE_RATE = 26
+
+/**
+ * What flies off each kind of ball: how many a second (times SPARKLE_RATE), how long they
+ * last (times SPARKLE_LIFE), how big (times the ball), their drift (`rise` up, `spread`
+ * sideways, `pull` towards the ball) and colours.
+ */
+const FX = {
+  none: { rate: 0.6, life: 1, size: 1, rise: 2, spread: 3, pull: 0, colors: ['#ffffff'] },
+  fire: { rate: 2.4, life: 0.9, size: 1.5, rise: 4.5, spread: 2.2, pull: 0, colors: ['#fff27a', '#ffb21a', '#ff5a14', '#ff2a00'] },
+  frost: { rate: 1.6, life: 1.2, size: 1, rise: -1.5, spread: 2.5, pull: 0, colors: ['#ffffff', '#bff4ff', '#7fd2ff'] },
+  spark: { rate: 2, life: 0.35, size: 0.9, rise: 0, spread: 9, pull: 0, colors: ['#fff7a0', '#9ff4ff', '#ffffff'] },
+  gold: { rate: 1.6, life: 1, size: 0.9, rise: 1, spread: 2.5, pull: 0, colors: ['#ffe27a', '#ffffff', '#ffc21a'] },
+  smoke: { rate: 2.2, life: 1, size: 1.6, rise: 3, spread: 2, pull: 0, colors: ['#ffd27a', '#ff7a1a', '#c2410c'] },
+  stars: { rate: 1.6, life: 1.1, size: 1.1, rise: 0.5, spread: 3.5, pull: 0, colors: ['#ffffff', '#ff7ad9', '#7fd2ff', '#ffe27a'] },
+  void: { rate: 2, life: 0.8, size: 1, rise: 0, spread: 6, pull: 7, colors: ['#d18bff', '#ffb3ff', '#7a3cff'] },
+}
+const FX_COLORS = Object.fromEntries(Object.entries(FX).map(([id, fx]) => [id, fx.colors.map((c) => new Color(c))]))
 
 const ribbonVertex = /* glsl */ `
   attribute vec2 aTrail;
@@ -174,7 +192,7 @@ const DOWN_FIELD = new Vector3(0, -SIN, -COS)
 /** The ball's recent path: a ring of positions and the time each was taken (seconds). */
 const path = { xyz: new Float32Array(SAMPLES * 3), t: new Float64Array(SAMPLES), head: 0, count: 0 }
 
-const sparkles = Array.from({ length: SPARKLES }, () => ({ life: 0, pos: new Vector3(), vel: new Vector3(), size: 1 }))
+const sparkles = Array.from({ length: SPARKLES }, () => ({ life: 0, max: SPARKLE_LIFE, pull: 0, pos: new Vector3(), vel: new Vector3(), size: 1 }))
 
 const _a = new Vector3()
 const _b = new Vector3()
@@ -266,8 +284,8 @@ export function TireTrail() {
   const ribbonRef = useRef(null)
   const orbRef = useRef(null)
   const sparkleRef = useRef(null)
-  /** The kick (its startedAt) the trail was last reset for; sparkles owed; the next slot. */
-  const state = useRef({ kick: -1, owed: 0, next: 0 })
+  /** The hit (its startedAt) the trail was last reset for; sparkles owed; the next slot; its fx. */
+  const state = useRef({ kick: -1, owed: 0, next: 0, fx: 'none' })
   const gl = useThree((s) => s.gl)
   const camera = useThree((s) => s.camera)
   const scene = useThree((s) => s.scene)
@@ -309,17 +327,21 @@ export function TireTrail() {
     const st = state.current
     const flying = roll.active && roll.phase === 'ride' && !roll.crashed
 
-    // A new kick: forget the last one's path and set this ball's colours.
+    // A new hit: forget the last one's path and set this ball's colours.
     if (roll.active && st.kick !== roll.startedAt) {
       st.kick = roll.startedAt
       path.count = 0
-      const perfect = roll.hit === 'perfect'
-      _head.copy(perfect ? PERFECT_HEAD : tireGlow(roll.tireId))
-      _tail.copy(perfect ? PERFECT_TAIL : _head).lerp(WHITE, perfect ? 0 : 0.3)
+      const look = ballLook(roll.ballId)
+      const style = ballStyle(roll.ballId)
+      // A PERFECT hit sets a plain ball on fire; a ball with its own fire keeps it.
+      const blaze = roll.hit === 'perfect' && !style.fx
+      _head.copy(blaze ? PERFECT_HEAD : look.head)
+      _tail.copy(blaze ? PERFECT_TAIL : look.tail)
       const u = ribbon.material.uniforms
       u.uHead.value.copy(_head)
       u.uTail.value.copy(_tail)
-      u.uRainbow.value = !perfect && RAINBOW_TRAILS.has(roll.tireId) ? 1 : 0
+      u.uRainbow.value = style.rainbow ? 1 : 0
+      st.fx = style.fx || (blaze ? 'fire' : 'none')
     }
 
     // Where the ball is now, added to its path while it flies and bounces.
@@ -384,18 +406,23 @@ export function TireTrail() {
     const fades = sparkleMesh.geometry.getAttribute('aFade')
     let colored = false
     if (flying && roll.speed > 4 && getQuality().particles) {
-      st.owed += delta * SPARKLE_RATE
+      const fx = FX[st.fx] || FX.none
+      const colors = FX_COLORS[st.fx] || FX_COLORS.none
+      st.owed += delta * SPARKLE_RATE * fx.rate
       while (st.owed >= 1) {
         st.owed -= 1
         const i = st.next
         st.next = (st.next + 1) % SPARKLES
         const s = sparkles[i]
-        s.life = SPARKLE_LIFE
-        const r = (roll.size || TIRE_SIZE) * 0.9
+        s.max = SPARKLE_LIFE * fx.life * (0.7 + Math.random() * 0.6)
+        s.life = s.max
+        s.pull = fx.pull
+        const r = (roll.size || TIRE_SIZE) * (fx.pull ? 3 : 0.9)
         s.pos.copy(roll.position).add(_a.set((Math.random() - 0.5) * r, (Math.random() - 0.5) * r, (Math.random() - 0.5) * r))
-        s.vel.set((Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3)
-        s.size = (roll.size || TIRE_SIZE) * (0.35 + Math.random() * 0.35)
-        sparkleMesh.setColorAt(i, i % 3 === 0 ? WHITE : ribbon.material.uniforms.uHead.value)
+        s.vel.set((Math.random() - 0.5) * fx.spread, fx.rise * (0.5 + Math.random()), (Math.random() - 0.5) * fx.spread)
+        s.size = (roll.size || TIRE_SIZE) * fx.size * (0.35 + Math.random() * 0.35)
+        const pick = colors[i % colors.length]
+        sparkleMesh.setColorAt(i, st.fx === 'none' && i % 3 !== 0 ? ribbon.material.uniforms.uHead.value : pick)
         colored = true
       }
     } else {
@@ -414,8 +441,10 @@ export function TireTrail() {
       }
       alive = true
       s.vel.multiplyScalar(1 - delta * 2)
+      // The Black Hole's: dragged in after the ball.
+      if (s.pull && roll.active) s.vel.addScaledVector(_b.subVectors(roll.position, s.pos), s.pull * delta)
       s.pos.addScaledVector(s.vel, delta)
-      const age = 1 - s.life / SPARKLE_LIFE
+      const age = 1 - s.life / s.max
       // Twinkling as it fades.
       _s.setScalar(s.size * (1 - age * 0.5))
       sparkleMesh.setMatrixAt(i, _m.compose(s.pos, _q, _s))

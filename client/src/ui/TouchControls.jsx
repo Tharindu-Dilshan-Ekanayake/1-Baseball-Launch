@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { tapSwing } from '../game/clickSwing'
 import { runtime } from '../game/runtime'
+import { useGame } from '../store/game'
+import Icon from './Icon'
 import { GRADIENTS } from './hud/style'
 
 /** Joystick travel radius, in CSS pixels. */
@@ -21,8 +24,11 @@ const roundButton = (size, background) => ({
 
 /**
  * On-screen controls for touch devices: a floating joystick that appears wherever the
- * left side of the screen is touched, and a jump button. Everything else is walking
- * onto things: the kick zone, a treadmill, a ball stand.
+ * left side of the screen is touched, a jump button, and a BAT button above it: tap it to
+ * toss a ball up and smack it for Power (hold it to keep swinging, once every
+ * CLICK_INTERVAL). At a batting station the HIT / SWING button takes over, and the bat
+ * button steps aside. Everything else is walking onto things: a batting station, a cage,
+ * a bat stand.
  *
  * Writes straight into `runtime.input` and moves the knob through refs, so dragging
  * never re-renders React.
@@ -32,6 +38,14 @@ export function TouchControls() {
   const baseRef = useRef(null)
   const knobRef = useRef(null)
   const active = useRef({ id: null, x: 0, y: 0 })
+  // The bat button: gone at a batting station (HIT / SWING is there), while a hit flies,
+  // and under a panel.
+  const batVisible = useGame((s) => !s.zone.atPlate && !s.roll && !s.rollResult && !s.panel)
+  const holdTimer = useRef(0)
+  const stopHold = () => {
+    clearInterval(holdTimer.current)
+    holdTimer.current = 0
+  }
 
   // A touchscreen laptop can start with a mouse; show the controls on first touch.
   useEffect(() => {
@@ -48,6 +62,7 @@ export function TouchControls() {
       runtime.input.joyX = 0
       runtime.input.joyY = 0
       runtime.input.jump = false
+      clearInterval(holdTimer.current)
     },
     [],
   )
@@ -126,6 +141,28 @@ export function TouchControls() {
           />
         </div>
       </div>
+
+      {batVisible && (
+        <button
+          type="button"
+          aria-label="Swing your bat"
+          className="touch-bat pp-btn pp-chunky absolute z-20 flex touch-none items-center justify-center rounded-full text-white"
+          style={roundButton(84, GRADIENTS.goldButton)}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            tapSwing()
+            stopHold()
+            // Held: keeps swinging (tapSwing paces itself).
+            holdTimer.current = setInterval(() => tapSwing(), 120)
+          }}
+          onPointerUp={stopHold}
+          onPointerCancel={stopHold}
+          onPointerLeave={stopHold}
+        >
+          <span className="pp-gloss" style={{ borderRadius: '42px 42px 24px 24px' }} />
+          <Icon name="bat" size={52} />
+        </button>
+      )}
 
       <button
         type="button"

@@ -32,11 +32,12 @@ export function skyLook({ top, horizon, sun = '#ffffff', glow = 0.5, clouds = 0.
 }
 
 /**
- * The lobby's sky in each world: World 1's golden-hour game day; Palm Beach's sunset - a
- * violet sky going pink and orange down to the sea, the low sun big and gold over the
- * water, its haze (and the fog) the colour of the sea's horizon.
+ * The lobby's sky in each world: the Sunny Ballpark's clear blue game day; Lava Land's
+ * volcanic glow - a smoky near-black overhead going blood red and orange down to the lava
+ * sea, a hot orange sun haze, a few stars through the ash, and its fog the colour of the
+ * glow at the horizon.
  */
-const LOBBY_SKIES = [skyLook(SKY), skyLook({ top: '#3d2f8f', horizon: '#ff9f86', sun: '#ffd27a', glow: 1.15, clouds: 0.6, stars: 0 })]
+const LOBBY_SKIES = [skyLook(SKY), skyLook({ top: '#1e0708', horizon: '#ff6a2a', sun: '#ffb060', glow: 1.15, clouds: 0.45, stars: 0.18 })]
 export const lobbySky = () => LOBBY_SKIES[activeWorld()] ?? LOBBY_SKIES[0]
 
 /**

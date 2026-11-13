@@ -3,6 +3,8 @@ import { test } from 'node:test'
 
 import {
   AD_REWARDS,
+  BALLS,
+  CLICK_INTERVAL,
   EGGS,
   GEM_PRODUCTS,
   healthForLevel,
@@ -27,10 +29,12 @@ import {
   applyRoll,
   baseRollWins,
   applyTrain,
+  buyBall,
   buyHealthPack,
   buyTire,
   createProfile,
   createSession,
+  equipBall,
   hatchEgg,
   healthPacks,
   isPadUnlocked,
@@ -44,7 +48,7 @@ import {
   usePortal,
 } from '../../shared/logic.js'
 import { PlayerSession } from '../../shared/session.js'
-import { LAUNCH_STAND, MAX_PULL, maxPullFor, PAD_X, padCenterZ, PORTALS, ROLL_ZONE, SPAWN, STAR } from '../../shared/world.js'
+import { PAD_X, padCenterZ, PORTALS, ROLL_ZONE, SPAWN, STAR } from '../../shared/world.js'
 
 const onPad = (i) => ({ x: PAD_X, y: 0.5, z: padCenterZ(i) })
 const inRollZone = () => ({ x: 0, y: 0, z: (ROLL_ZONE.minZ + ROLL_ZONE.maxZ) / 2 })
@@ -334,16 +338,17 @@ test('training only counts on the pad the player really stands on', () => {
   assert.equal(session.pad, 0, 'a locked pad cannot be entered')
 })
 
-test('the first guide step completes on the pad once Health reaches 30', () => {
+test('the first guide step completes in the cage once Power reaches 12', () => {
   assert.equal(TUTORIAL[0].event, 'train')
-  assert.equal(TUTORIAL[0].health, 30)
+  const target = TUTORIAL[0].health
+  assert.equal(target, 12)
   const pos = onPad(0)
   const { session, profile } = makeSession(pos)
   session.handle('enterPad', { pad: 0 }, 0)
   let t = 0
-  while (profile.health < 29) session.tick(0.1, (t += 100))
+  while (profile.health < target - 1) session.tick(0.1, (t += 100))
   assert.equal(profile.tutorialStep, 0)
-  while (profile.health < 30) session.tick(0.1, (t += 100))
+  while (profile.health < target) session.tick(0.1, (t += 100))
   assert.equal(profile.tutorialStep, 1)
 })
 
@@ -531,30 +536,97 @@ test("Palm Beach's Secret Star: found once, there only, for x2 Power everywhere"
   assert.equal(far.count('star'), 0)
 })
 
-// --- The stretch lane ------------------------------------------------------------
+// --- Click swings ------------------------------------------------------------------------
 
-test('walking further back down the stretch lane flings you further and pays more, up to your arms reach', () => {
-  const launchFrom = (back, tire) => {
-    const profile = createProfile('a', 'A')
-    profile.health = 5000
-    if (tire) {
-      profile.ownedTires.push(tire)
-      profile.equippedTire = tire
-    }
-    const { session, events } = makeSession({ x: LAUNCH_STAND.x, y: 0, z: LAUNCH_STAND.z + back }, profile)
-    session.handle('roll', { accuracy: 0.5 }, 1000)
-    return events.find((e) => e.type === 'roll').payload
+test('walking earns no Power; clicking swings do, one every CLICK_INTERVAL at most', () => {
+  const pos = { x: 0, y: 0, z: 40 }
+  const { session, profile, events } = makeSession(pos)
+  // A long walk round the lobby: nothing.
+  let t = 0
+  for (let i = 0; i < 100; i += 1) {
+    pos.x = Math.sin(i / 5) * 10
+    pos.z = 40 - i * 0.5
+    session.tick(0.1, (t += 100))
   }
-  const stood = launchFrom(0)
-  const short = launchFrom(3)
-  assert.equal(stood.stretch, 0)
-  assert.ok(short.distance > stood.distance && short.wins >= stood.wins)
-  // Starter arms only reach a few metres: walking the whole lane counts no further.
-  const cheat = launchFrom(MAX_PULL)
-  assert.ok(cheat.stretch <= maxPullFor('bicycle', 1, 15) + 0.6) // (+0.5 lag slack, rounded)
-  // The best arms reach (nearly) the whole 40 m - and fly much further for it.
-  const best = TIRES[TIRES.length - 1].id
-  const far = launchFrom(MAX_PULL, best)
-  assert.ok(far.stretch > cheat.stretch * 3)
-  assert.ok(far.distance > stood.distance * 1.3)
+  assert.equal(profile.health, 0)
+  // A click swing pays a gain, tagged 'click', and counts towards the first guide step.
+  session.handle('clickSwing', {}, (t += 1000))
+  assert.ok(profile.health > 0)
+  assert.equal(events.filter((e) => e.type === 'train').at(-1).payload.source, 'click')
+  // An autoclicker's second click straight after pays nothing; one a beat later does.
+  const after = profile.health
+  session.handle('clickSwing', {}, t + 50)
+  assert.equal(profile.health, after)
+  session.handle('clickSwing', {}, t + CLICK_INTERVAL * 1000)
+  assert.ok(profile.health > after)
+})
+
+test('no click swings in a cage (it swings for you) or while a hit is out', () => {
+  const caged = makeSession(onPad(0))
+  caged.session.handle('enterPad', { pad: 0 }, 0)
+  caged.session.handle('clickSwing', {}, 1000)
+  assert.equal(caged.profile.health, 0)
+  const hitter = makeSession(inRollZone())
+  hitter.profile.health = 100
+  hitter.session.handle('roll', { accuracy: 0.9 }, 1000)
+  const before = hitter.profile.health
+  hitter.session.handle('clickSwing', {}, 1500)
+  assert.equal(hitter.profile.health, before)
+})
+
+// --- Balls ----------------------------------------------------------------------------
+
+test('balls are bought one by one, equipped, and saved', () => {
+  const p = createProfile('a', 'A')
+  assert.equal(p.equippedBall, 'baseball')
+  assert.deepEqual(p.ownedBalls, ['baseball'])
+  p.wins = 1e15
+  // Not out of order.
+  assert.equal(buyBall(p, BALLS[2].id).ok, false)
+  assert.ok(buyBall(p, BALLS[1].id).bought)
+  assert.equal(p.equippedBall, BALLS[1].id)
+  assert.equal(p.wins, 1e15 - BALLS[1].cost)
+  // Back to one you own: equips, costs nothing.
+  const wins = p.wins
+  assert.ok(equipBall(p, 'baseball').ok)
+  assert.equal(p.wins, wins)
+  assert.equal(equipBall(p, BALLS[5].id).ok, false)
+  // A save with junk in it keeps only real balls, and an owned one equipped.
+  const n = normalizeProfile({ ownedBalls: ['baseball', 'fire', 'nope'], equippedBall: 'nope' }, 'b', 'B')
+  assert.deepEqual(n.ownedBalls, ['baseball', 'fire'])
+  assert.equal(n.equippedBall, 'baseball')
+  // An old save (no balls at all) starts with the baseball.
+  assert.deepEqual(normalizeProfile({}, 'c', 'C').ownedBalls, ['baseball'])
+})
+
+test('every ball flies further and pays more than the last', () => {
+  for (let i = 1; i < BALLS.length; i += 1) {
+    assert.ok(BALLS[i].reach > BALLS[i - 1].reach, BALLS[i].id)
+    assert.ok(BALLS[i].wins > BALLS[i - 1].wins, BALLS[i].id)
+    assert.ok(BALLS[i].cost > BALLS[i - 1].cost, BALLS[i].id)
+  }
+  const hit = (ball) => {
+    const p = createProfile('a', 'A')
+    p.health = 5000
+    p.ownedBalls.push(ball)
+    p.equippedBall = ball
+    return applyRoll(p, 0, 0.5)
+  }
+  const plain = hit('baseball')
+  const fire = hit('fire')
+  assert.equal(fire.ballId, 'fire')
+  assert.ok(Math.abs(fire.distance / plain.distance - BALLS.find((b) => b.id === 'fire').reach) < 0.01)
+  assert.ok(fire.wins > plain.wins)
+})
+
+test('the session buys balls from anywhere and tells the client which ball was hit', () => {
+  const profile = createProfile('a', 'A')
+  profile.wins = 1e6
+  profile.health = 5000
+  const { session, events } = makeSession(inRollZone(), profile)
+  session.handle('buyBall', { id: BALLS[1].id }, 0)
+  assert.equal(profile.equippedBall, BALLS[1].id)
+  session.handle('roll', { accuracy: 0.9 }, 1000)
+  const roll = events.find((e) => e.type === 'roll').payload
+  assert.equal(roll.ballId, BALLS[1].id)
 })

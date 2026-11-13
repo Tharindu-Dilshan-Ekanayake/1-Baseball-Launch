@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { HIT_GRADES, hitGrade, hitReach } from '@shared/balance'
+import { HIT_GRADES, hitGrade, SWING_WINDOW } from '@shared/balance'
 
-import { sfx } from '../../audio/sfx'
-import { cancelPull, grab, launch, letGo } from '../../game/launch'
+import { cancelPull, launch, pressHit, slowAt } from '../../game/launch'
 import { actions } from '../../net/actions'
 import { useGame } from '../../store/game'
 import Icon from '../Icon'
@@ -11,15 +10,15 @@ import StrokeText from '../StrokeText'
 import { ChunkyButton } from './parts'
 import { GRADIENTS, u } from './style'
 
-/** With Auto Launch on, the next launch starts this long after you're back at the posts. */
-const AUTO_DELAY_MS = 700
-/** Auto Launch lets go this long after reaching full stretch. */
-const AUTO_HOLD_MS = 200
 /** A press is ignored this soon after the last (a double tap, a bouncing key). */
 const PRESS_COOLDOWN_MS = 250
 
-/** The meter's coloured bands, from the grades: each runs from its `min` to the top. */
-const BANDS = HIT_GRADES.filter((g) => g.min > 0).map((g) => ({ id: g.id, from: g.min }))
+/**
+ * The meter's grade bands, centred on the moment the ball crosses the plate: each grade
+ * spans the times its meter reading covers (HIT_GRADES `min`), the ball marker sliding
+ * across from "still coming" (left) to "gone by" (right).
+ */
+const BANDS = HIT_GRADES.filter((g) => g.min > 0).map((g) => ({ id: g.id, half: (1 - g.min) / 2 }))
 const BAND_COLORS = {
   perfect: 'linear-gradient(180deg, #fff6a3 0%, #ffd21f 55%, #ff9c00 100%)',
   great: 'linear-gradient(180deg, #d9ff9a 0%, #5fe83a 55%, #1fb52a 100%)',
@@ -29,198 +28,224 @@ const BAND_COLORS = {
 const GRADE_COLORS = { perfect: '#ffd21f', great: '#7dff4a', good: '#9fe8ff', weak: '#ff6a5a' }
 
 /**
- * The launch posts' HUD: the stretch meter and the LAUNCH! button, shown by the posts.
- * Walk up to the posts and you grab them by themselves (or press E /
- * Enter); then walk BACK with your joystick or keys - your arms stretch like rubber and
- * the stretch meter fills with how far back you've got (out of how far your arms reach).
- * At full stretch the rubber twangs and the meter bounces off the top. Stop pulling back
- * (let go of the stick or key - the button works too) to fly out between the posts: the fuller the meter, the further you fly and the more it pays
- * (HIT_GRADES) - let go right at the top of a twang for PERFECT. With the Auto Launch pass,
- * a toggle under it grabs, walks back and lets go for you every time you're back (a plain
- * launch, no meter). Jumping lets go of the posts without launching.
+ * The batting station's HUD: the HIT! button, the swing meter and the slow motion. Walk
+ * onto a batter's box and you step up to bat by yourself. Press HIT (the button, Space, E,
+ * Enter or a click) and you toss the ball high over the plate; as it falls the game goes
+ * into slow motion (a vignette closes in round the screen) and the ball marker slides
+ * across the meter - bang in the middle (gold) the moment it reaches the bat. Press again,
+ * SWING, as it does: the closer to the middle, the further the ball flies and the more it
+ * pays (HIT_GRADES). Swing outside the meter and you whiff; then toss again. With the Auto
+ * Swing pass, a toggle under it tosses and swings for you (a plain hit, no meter). Walk
+ * off to step out.
  *
- * The meter is moved straight on the DOM every animation frame (the player keeps
- * launch.charge up to date); React only hears about grabbing and letting go.
+ * The meter and the vignette move straight on the DOM every animation frame (launch.js
+ * keeps the toss's clock); React only hears about stepping in and out, and the button's
+ * HIT / SWING.
  */
 export function RollButton() {
-  const near = useGame((s) => s.zone.atPosts && !s.roll && !s.rollResult && !s.panel)
+  const near = useGame((s) => s.zone.atPlate && !s.roll && !s.rollResult && !s.panel)
   const ownsAuto = useGame((s) => Boolean(s.profile.passes.autoRoll))
   const autoOn = useGame((s) => Boolean(s.profile.passes.autoRoll && s.profile.settings.autoRoll))
-  /** Holding the posts right now (mirrors launch.gripping for React). */
-  const [gripping, setGripping] = useState(false)
-  const [auto, setAuto] = useState(false)
+  /** Up at bat right now (mirrors launch.gripping for React), and the ball in the air (HIT or SWING). */
+  const [atBat, setAtBat] = useState(false)
+  const [tossed, setTossed] = useState(false)
   const lastPress = useRef(-Infinity)
-  const fillRef = useRef(null)
+  const markerRef = useRef(null)
   const labelRef = useRef(null)
-  const hintRef = useRef(null)
-  const visible = near || gripping
-
-  const doGrab = useCallback((byAuto = false) => {
-    if (launch.gripping || launch.released) return
-    grab(byAuto)
-    sfx.stretchStart()
-    setGripping(true)
-    setAuto(byAuto)
-  }, [])
-
-  /** Lets go; `plain` sends no meter reading (Auto Launch). */
-  const doLetGo = useCallback((plain = false) => {
-    if (!launch.gripping) return
-    const charge = letGo()
-    sfx.stretchStop()
-    setGripping(false)
-    setAuto(false)
-    actions.roll(plain ? undefined : Math.round(charge * 1000) / 1000)
-  }, [])
+  const meterRef = useRef(null)
+  const vignetteRef = useRef(null)
+  const visible = near || atBat
 
   const press = useCallback(() => {
     const now = performance.now()
     if (now - lastPress.current < PRESS_COOLDOWN_MS) return
     lastPress.current = now
-    if (launch.gripping) doLetGo()
-    else doGrab()
-  }, [doGrab, doLetGo])
+    pressHit(now)
+  }, [])
 
-  // You can also grab the posts by walking up to them and let go by stopping pulling
-  // back (Player.jsx), with no button: keep the meter in step with that.
+  // Stepping in and out happens in the player (walking on and off the box): keep up.
   useEffect(() => {
     if (!visible) return undefined
     const id = setInterval(() => {
-      setGripping(launch.gripping)
-      setAuto(launch.auto)
+      setAtBat(launch.gripping || launch.released)
+      setTossed(launch.stage !== 'ready' && !launch.released)
     }, 80)
     return () => clearInterval(id)
   }, [visible])
 
-  // A panel opened or the launch started: let go of the posts.
+  // A panel opened or the hit started: step out (a hit steps you back in after).
   const panel = useGame((s) => s.panel)
   const rolling = useGame((s) => Boolean(s.roll))
   const [blocked, setBlocked] = useState(false)
   if (Boolean(panel || rolling) !== blocked) {
     setBlocked(Boolean(panel || rolling))
-    if (panel || rolling) {
-      setGripping(false)
-      setAuto(false)
-    }
+    if (panel || rolling) setAtBat(false)
   }
   useEffect(() => {
-    if (!blocked || !launch.gripping) return
-    cancelPull()
-    sfx.stretchStop()
-  }, [blocked])
+    if (blocked && panel && launch.gripping && !launch.released) cancelPull()
+  }, [blocked, panel])
 
   useEffect(() => {
     if (!visible) return undefined
     const onKey = (e) => {
-      if (!e.repeat && (e.code === 'KeyE' || e.code === 'Enter')) press()
+      if (!e.repeat && (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'KeyF')) press()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [visible, press])
 
-  // Auto Launch: grab and walk back by itself every time you're back at the posts.
+  // The meter, every frame, while up at bat: the ball sliding across, and the grade a
+  // swing right now would get.
   useEffect(() => {
-    if (!near || !autoOn || gripping) return undefined
-    const id = setTimeout(() => doGrab(true), AUTO_DELAY_MS)
-    return () => clearTimeout(id)
-  }, [near, autoOn, gripping, doGrab])
-
-  // The meter, every frame, while gripping (and noticing a jump letting go).
-  useEffect(() => {
-    if (!gripping) return undefined
+    if (!atBat) return undefined
     let raf = 0
     const tick = () => {
-      if (!launch.gripping) {
-        // Let go some other way (a jump): put the meter away.
-        sfx.stretchStop()
-        setGripping(false)
-        setAuto(false)
-        return
+      const now = performance.now()
+      const thrown = launch.stage !== 'ready' || launch.released
+      const t = (now - launch.arriveAt) / 1000
+      const x = thrown ? Math.min(1, Math.max(0, 0.5 + t / (2 * SWING_WINDOW))) : 0
+      const marker = markerRef.current
+      if (marker) marker.style.left = `${x * 100}%`
+      // The meter only while there's a ball in the air (or the swing's grade on it).
+      if (meterRef.current) meterRef.current.style.opacity = thrown ? '1' : '0'
+      if (vignetteRef.current) vignetteRef.current.style.opacity = String(slowAt(now))
+      let text
+      let color = '#ffffff'
+      if (launch.released) {
+        const grade = hitGrade(launch.accuracy)
+        text = grade.label
+        color = GRADE_COLORS[grade.id]
+      } else if (!thrown) {
+        text = 'Press HIT to toss the ball up!'
+      } else if (launch.stage === 'whiff') {
+        text = 'MISSED! Toss again...'
+        color = GRADE_COLORS.weak
+      } else if (launch.charge > 0) {
+        const grade = hitGrade(launch.charge)
+        text = t < 0 ? `SWING! ${grade.label.replace(/[!.]+$/, '')}` : grade.label.replace(/[!.]+$/, '')
+        color = GRADE_COLORS[grade.id]
+      } else {
+        text = t < 0 ? 'WAIT FOR IT...' : 'TOO LATE!'
       }
-      const charge = launch.charge
-      sfx.stretchSet(charge, launch.full)
-      if (auto && launch.full && performance.now() - launch.fullSince > AUTO_HOLD_MS) {
-        doLetGo(true)
-        return
-      }
-      if (fillRef.current) fillRef.current.style.width = `${charge * 100}%`
-      // The grade letting go now would get, in its colour, and how far it would fling
-      // you: "LET GO! PERFECT x1.5". Both layers of the outlined text (StrokeText).
-      const grade = hitGrade(charge)
-      const text = launch.full ? `RELEASE! ${grade.label.replace(/[!.]+$/, '')} x${hitReach(charge).toFixed(1)}` : `WALK BACK! ${Math.round(launch.back)}m / ${Math.round(launch.max)}m`
       for (const layer of labelRef.current?.querySelectorAll('.pp-text-stroke, .pp-text-fill') ?? []) layer.textContent = text
       const fill = labelRef.current?.querySelector('.pp-text-fill')
-      if (fill) fill.style.color = launch.full ? GRADE_COLORS[grade.id] : '#ffffff'
-      if (hintRef.current) hintRef.current.style.opacity = launch.full ? '0' : '1'
+      if (fill) fill.style.color = color
       raf = requestAnimationFrame(tick)
     }
     tick()
     return () => cancelAnimationFrame(raf)
-  }, [gripping, auto, doLetGo])
+  }, [atBat])
 
   if (!visible) return null
+  const manual = atBat && !autoOn
   return (
     <>
-      {/* The stretch meter, up under the top bar: the middle of the screen is you,
-          walking back from the posts. */}
-      {gripping && !auto && (
-        <div className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 flex-col items-center" style={{ top: u(150) }}>
-          <span ref={labelRef} className="whitespace-nowrap" style={{ fontSize: u(54), color: '#ffffff' }}>
-            <StrokeText stroke={u(11)}>WALK BACK! 0%</StrokeText>
-          </span>
-          <div
-            className="relative overflow-hidden"
-            style={{
-              width: u(560),
-              height: u(54),
-              borderRadius: u(27),
-              border: `${u(6)} solid #1b1b1f`,
-              background: '#2a1f4a',
-              boxShadow: `0 ${u(6)} 0 rgba(0,0,0,0.35)`,
-            }}
-          >
-            {/* The grade bands, faint, along the top end of the meter. */}
-            {BANDS.map((b) => (
-              <div key={b.id} className="absolute top-0 bottom-0" style={{ left: `${b.from * 100}%`, right: 0, background: BAND_COLORS[b.id], opacity: 0.32 }} />
-            ))}
-            {/* The stretch itself: a rubber band filling up. */}
-            <div
-              ref={fillRef}
-              className="absolute top-0 bottom-0 left-0"
-              style={{
-                width: '0%',
-                background: 'repeating-linear-gradient(135deg, #ff5fa8 0 14px, #ff8fd0 14px 28px)',
-                borderRight: `${u(5)} solid #ffffff`,
-              }}
-            />
-            {BANDS.map((b) => (
-              <div key={`${b.id}-mark`} className="absolute top-0 bottom-0" style={{ left: `${b.from * 100}%`, width: u(4), background: '#1b1b1f', opacity: 0.6 }} />
-            ))}
-          </div>
-          <span ref={hintRef} className="flex items-center" style={{ fontSize: u(32), marginTop: u(10), gap: u(8) }}>
-            <Icon name="arrowDown" size={u(40)} />
-            <StrokeText stroke={u(7)}>Walk BACK to stretch your arms - then RELEASE at the very top!</StrokeText>
+      {/* Slow motion: the screen's edges closing in, cold and dark, while the ball falls. */}
+      {atBat && (
+        <div
+          ref={vignetteRef}
+          className="pointer-events-none absolute inset-0 flex items-end justify-center"
+          style={{
+            opacity: 0,
+            transition: 'opacity 0.25s linear',
+            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(8,18,52,0.55) 80%, rgba(4,8,30,0.85) 100%)',
+          }}
+        >
+          <span style={{ fontSize: u(40), marginBottom: u(430), letterSpacing: u(6), opacity: 0.85 }}>
+            <StrokeText stroke={u(7)}>SLOW MOTION</StrokeText>
           </span>
         </div>
       )}
-      <div className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 flex-col items-center" style={{ bottom: u(300) }}>
-        {/* No button: walking up to the posts grabs them, letting go of the stick launches. */}
-        {!gripping && (
-          <span style={{ fontSize: u(34) }}>
-            <StrokeText stroke={u(7)}>Walk up to the posts, pull BACK, then release!</StrokeText>
+      {/* The swing meter, up under the top bar: the middle of the screen is the ball. */}
+      {manual && (
+        <div className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 flex-col items-center" style={{ top: u(150) }}>
+          <span ref={labelRef} className="whitespace-nowrap" style={{ fontSize: u(54), color: '#ffffff' }}>
+            <StrokeText stroke={u(11)}>Press HIT to toss the ball up!</StrokeText>
           </span>
+          <div ref={meterRef} className="flex flex-col items-center" style={{ opacity: 0, transition: 'opacity 0.15s' }}>
+          <div
+            className="relative overflow-hidden"
+            style={{
+              width: u(600),
+              height: u(54),
+              borderRadius: u(27),
+              border: `${u(6)} solid #1b1b1f`,
+              background: 'linear-gradient(180deg, #ff8a7a 0%, #e8423a 100%)',
+              boxShadow: `0 ${u(6)} 0 rgba(0,0,0,0.35)`,
+            }}
+          >
+            {/* The grade bands: GOOD, then GREAT, then PERFECT in the middle. */}
+            {BANDS.slice()
+              .reverse()
+              .map((b) => (
+                <div key={b.id} className="absolute top-0 bottom-0" style={{ left: `${(0.5 - b.half) * 100}%`, right: `${(0.5 - b.half) * 100}%`, background: BAND_COLORS[b.id] }} />
+              ))}
+            {/* The plate: the line the ball must be on. */}
+            <div className="absolute top-0 bottom-0" style={{ left: '50%', width: u(5), marginLeft: u(-2.5), background: '#ffffff' }} />
+            {/* The ball itself: a baseball sliding across as it falls. */}
+            <div
+              ref={markerRef}
+              className="absolute"
+              style={{
+                left: '0%',
+                top: '50%',
+                width: u(44),
+                height: u(44),
+                marginLeft: u(-22),
+                marginTop: u(-22),
+                borderRadius: '50%',
+                background: 'radial-gradient(circle at 35% 30%, #ffffff 0%, #f1ece0 55%, #c9c1ae 100%)',
+                border: `${u(4)} solid #1b1b1f`,
+                boxShadow: `inset ${u(-6)} 0 0 ${u(-2)} rgba(224,38,47,0.55), inset ${u(6)} 0 0 ${u(-2)} rgba(224,38,47,0.55)`,
+              }}
+            />
+          </div>
+          <span className="flex items-center" style={{ fontSize: u(30), marginTop: u(10), gap: u(8) }}>
+            <StrokeText stroke={u(7)}>SWING when the ball hits the white line!</StrokeText>
+          </span>
+          </div>
+        </div>
+      )}
+      {/* HIT / SWING in the middle, near the bottom (the level bar and the other buttons
+          step aside while it's up - HUD.jsx): right under the batter and the falling ball. */}
+      <div className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center" style={{ bottom: u(90) }}>
+        {!atBat && (
+          <span className="pointer-events-none flex items-center" style={{ fontSize: u(34), gap: u(8), marginBottom: u(14) }}>
+            <Icon name="arrowDown" size={u(40)} />
+            <StrokeText stroke={u(7)}>Press HIT to step up and bat!</StrokeText>
+          </span>
+        )}
+        {(manual || !atBat) && (
+          <ChunkyButton
+            key={tossed ? 'swing' : 'hit'}
+            className={`pp-hit ${tossed ? 'pp-hit-swing' : 'pp-hit-idle'}`}
+            gradient={tossed ? GRADIENTS.goldButton : GRADIENTS.greenButton}
+            onPointerDown={(e) => {
+              e.preventDefault()
+              press()
+            }}
+            title={tossed ? 'Swing (Space / E)' : 'Hit: toss the ball up (Space / E)'}
+            radius={30}
+            border={6}
+            style={{ height: u(124), padding: `0 ${u(56)}`, minWidth: u(380) }}
+          >
+            <span className="flex items-center" style={{ fontSize: u(64), gap: u(16) }}>
+              <Icon name={tossed ? 'bat' : 'ball'} size={u(68)} />
+              <StrokeText stroke={u(12)}>{tossed ? 'SWING!' : 'HIT!'}</StrokeText>
+            </span>
+          </ChunkyButton>
         )}
         {ownsAuto && (
           <ChunkyButton
             gradient={autoOn ? GRADIENTS.goldButton : GRADIENTS.greyButton}
             onClick={() => actions.setSetting('autoRoll', !autoOn)}
-            title="Auto Launch"
+            title="Auto Swing"
             radius={10}
             border={4}
             style={{ height: u(56), padding: `0 ${u(20)}`, marginTop: u(12) }}
           >
             <span style={{ fontSize: u(32) }}>
-              <StrokeText stroke={u(7)}>Auto Launch: {autoOn ? 'ON' : 'OFF'}</StrokeText>
+              <StrokeText stroke={u(7)}>Auto Swing: {autoOn ? 'ON' : 'OFF'}</StrokeText>
             </span>
           </ChunkyButton>
         )}

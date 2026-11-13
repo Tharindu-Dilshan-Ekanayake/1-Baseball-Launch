@@ -157,30 +157,45 @@ const heart = svg(
 )
 
 /**
- * A rubber arm at full stretch: a long pink arm snaking up from the bottom left, ringed
- * like a rubber band, ending in a big golden fist, with speed marks where it's pulled -
- * in a thick ink outline. Still named `tire`, so every place that showed the template's
- * tire (the LAUNCH button, the shop, the passes, the loading screen) shows the arm.
+ * A baseball bat swung up to the right: a glossy wooden bat, thin taped handle and knob
+ * at the bottom left, the fat barrel at the top right with a shine down it, and speed
+ * marks behind the swing - in a thick ink outline. Also served as `tire` (the template's
+ * name), so every place that showed the template's tire (the SWING button, the shop, the
+ * passes, the Gems products) shows the bat.
  */
-const STRETCH = 'M16 88C20 62 50 72 48 50S60 32 66 31'
-const tire = svg(
-  `<path d="${STRETCH}" fill="none" stroke="${OUT}" stroke-width="25" stroke-linecap="round"/>
-  <path d="${STRETCH}" fill="none" stroke="url(#ar-g)" stroke-width="15" stroke-linecap="round"/>
-  <path d="${STRETCH}" fill="none" stroke="#fff" stroke-width="15" stroke-dasharray="4 10" opacity=".5"/>
-  <circle cx="73" cy="27" r="17" fill="url(#ar-f)" stroke="${OUT}" stroke-width="6"/>
-  <path d="M66 12l3 8M74 10v10M82 12l-3 8" fill="none" stroke="${OUT}" stroke-width="3.5" stroke-linecap="round"/>
-  <path d="M61 20q2-6 6-8" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".85"/>
-  <path d="M6 60l10 4M7 73l10 1M30 94l3-9" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/>
-  <path d="M6 60l10 4M7 73l10 1M30 94l3-9" stroke="${OUT}" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>`,
-  vgrad('ar-g', [
-    [0, '#ffa3dc'],
-    [1, '#e2318c'],
-  ]) +
-    vgrad('ar-f', [
-      [0, '#fff0a0'],
-      [0.5, '#ffcf2e'],
-      [1, '#f08c00'],
-    ]),
+const BAT_SHAPE = 'M14 45.5h30c12 0 18-7.5 31-7.5h11a12 12 0 0 1 0 24H75c-13 0-19-7.5-31-7.5H14z'
+const bat = svg(
+  `<g transform="rotate(-38 50 50)">
+    <path d="${BAT_SHAPE}" fill="none" stroke="${OUT}" stroke-width="12" stroke-linejoin="round"/>
+    <rect x="5" y="40" width="11" height="20" rx="5" fill="${OUT}"/>
+    <path d="${BAT_SHAPE}" fill="url(#bt-w)"/>
+    <rect x="7.5" y="42.5" width="6.5" height="15" rx="3" fill="#9a5a24"/>
+    <path d="M17 45.5h18v9H17z" fill="#d8263a"/>
+    <path d="M20 45.5l-2.5 9M26 45.5l-2.5 9M32 45.5l-2.5 9" stroke="#fff" stroke-width="2" opacity=".85"/>
+    <path d="M50 44c8-1 14-5 24-5.5h12" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" opacity=".85"/>
+    <path d="M62 56l5 1.2M70 58.5l6 .5" stroke="#9a5a24" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>
+  </g>
+  <path d="M8 30l13 7M5 44l12 2M14 18l9 10" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M8 30l13 7M5 44l12 2M14 18l9 10" stroke="${OUT}" stroke-width="1.5" stroke-linecap="round" opacity=".5"/>`,
+  vgrad('bt-w', [
+    [0, '#ffe7b8'],
+    [0.5, '#eab06a'],
+    [1, '#b9732e'],
+  ]),
+)
+
+/**
+ * A baseball: a glossy white ball with its two red stitched seams curling round it, in
+ * the thick ink outline.
+ */
+const SEAM_L = 'M30 15c13 14 13 56 0 70'
+const SEAM_R = 'M70 15c-13 14-13 56 0 70'
+const ball = svg(
+  `<circle cx="50" cy="50" r="41" fill="url(#bl-g)" stroke="${OUT}" stroke-width="6"/>
+  <path d="${SEAM_L}M${SEAM_R.slice(1)}" fill="none" stroke="#e0262f" stroke-width="3"/>
+  <path d="${SEAM_L}M${SEAM_R.slice(1)}" fill="none" stroke="#e0262f" stroke-width="11" stroke-dasharray="2.5 5.5"/>
+  <path d="M24 38c3-10 10-17 19-20" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>`,
+  `<radialGradient id="bl-g" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#eeeae0"/><stop offset="1" stop-color="#c9c2b2"/></radialGradient>`,
 )
 
 /** A round potion flask with a cork, filled with `liquid` and a small badge icon. */
@@ -331,7 +346,10 @@ export const ICON_SVGS = {
   star,
   settings,
   heart,
-  tire,
+  bat,
+  // The template's name for the item you upgrade: everything that asks for it gets the bat.
+  tire: bat,
+  ball,
   potionWins,
   potionHealth,
   close,
@@ -347,8 +365,8 @@ export const EGG_COLORS = {
   sunset: ['#ffc07a', '#ff6a3d', '#ffe2b8'],
   unicorn: ['#f6eaff', '#d3b4ff', '#ffd1f0'],
   volcano: ['#5a3a30', '#2a1814', '#ff6a14'],
-  // Sandy shell with blue waves, like the 3D Beach Egg (EggDisplays).
-  beach: ['#fff3dc', '#2fb8e0', '#bff4ff'],
+  // Lava Land's Lava Egg (id 'beach'): molten orange shell with glowing yellow spots.
+  beach: ['#ffb03a', '#d8320c', '#fff06a'],
 }
 
 const urlCache = new Map()

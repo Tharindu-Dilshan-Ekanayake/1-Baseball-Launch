@@ -1,16 +1,22 @@
-# React + Vite
+# +1 Baseball Launch - client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The game's browser client: React 19 + React Three Fiber on three.js, Vite, Tailwind, zustand.
 
-Currently, two official plugins are available:
+Swing in the batting cages for Power, step up to home plate and time your swing on the
+pitch, and send the ball flying and bouncing down the field for Wins. Spend them on 24
+bats (wood, bamboo, stone, bone, copper, steel, metal, gold, lava, diamond...), 12 balls
+from the Ball Shop (the Fire Ball, Ice Ball, Lightning Ball...), pets and better cages;
+rebirth for more Power; open the portal to Lava Land (World 2).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Scripts
 
-## React Compiler
+- `npm run dev` - development server (add `?perf` for the r3f-perf overlay, `?debug` for `window.__pp`)
+- `npm run build` - production build into `dist/`
+- `npm run lint` - ESLint
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Where things live
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `src/game/` - the 3D world: lobby, batting cages, home plate, the ball's flight, avatars, effects
+- `src/ui/` - the DOM HUD and panels (each panel a lazily loaded chunk: `ui/panels/panelLoaders.js`)
+- `src/net/` - the connection to the game server (or the offline stand-in, `net/localServer.js`)
+- `../shared/` - game rules and balance, shared with the server (`balance.js` is every tunable number)

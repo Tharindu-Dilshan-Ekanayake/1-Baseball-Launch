@@ -10,10 +10,11 @@ export const PORTAL_CENTER_Y = PORTALS[0].radius + 0.6
  * on every fourth block), the slab under it, and its swirl's colours (linear RGB).
  */
 export const PORTAL_THEMES = {
+  // Lava Land: a ring of basalt and glowing magma, a swirl of fire.
   world2: {
-    ring: ['#7fd0ff', '#bfeaff'],
-    base: '#e6f6ff',
-    swirl: { deep: [0.12, 0.45, 0.95], light: [0.75, 0.95, 1.0], core: [0.6, 0.6, 0.6] },
+    ring: ['#2a1e22', '#3a2a2e', '#ff6a1e'],
+    base: '#1e161a',
+    swirl: { deep: [0.85, 0.12, 0.02], light: [1.0, 0.7, 0.15], core: [0.6, 0.6, 0.6] },
   },
 }
 

@@ -18,10 +18,13 @@ export const runtime = {
     yaw: Math.PI,
     speed: 0,
     grounded: true,
-    /** 'idle' | 'walk' | 'run' (training on a pad) | 'jump' - what other players see. */
+    /** 'idle' | 'walk' | 'run' (swinging in a cage) | 'pull' (up at bat) | 'jump' - what other players see. */
     anim: 'idle',
-    /** Set when the controller should ignore input (while your tire rolls). */
+    /** Set when the controller should ignore input. */
     frozen: false,
+    /** The batting cage you're swinging in (-1: none), and your swings' phase in it. */
+    cage: -1,
+    cagePhase: -1,
   },
 
   /** Touch input, written by the on-screen joystick. -1..1, +y = forward. */
@@ -32,7 +35,7 @@ export const runtime = {
   },
 
   camera: {
-    /** 'follow' orbits the player; 'roll' chases your tire (see roll/Roll.jsx). */
+    /** 'follow' orbits the player; 'roll' chases your ball (see roll/Roll.jsx). */
     mode: 'follow',
     yaw: 0,
     pitch: 0.36,
@@ -41,7 +44,7 @@ export const runtime = {
     snap: false,
   },
 
-  /** What the sun's shadow box centres on while the camera chases your tire. */
+  /** What the sun's shadow box centres on while the camera chases your ball. */
   flightFocus: null,
 
   /**
@@ -51,10 +54,13 @@ export const runtime = {
   remotePets: [],
 
   /**
-   * Other players' rolls to replay as ghost tires, by their session id:
-   * `{ distance, duration, blocked, tireId, x, z, startedAt }`.
+   * Other players' hits to replay (their balls flying down their own lines), by their
+   * session id: `{ distance, duration, blocked, tireId, ballId, hit, x, z, startedAt }`.
    */
   ghostRolls: new Map(),
+
+  /** A pose pinned over yours from the ?debug console (Player.jsx), or null. */
+  debugPose: null,
 
   /** Walls that come and go at runtime, e.g. locked pads. */
   dynamicColliders: [],
